@@ -127,6 +127,7 @@ public:
 	}
 };
 
+#ifndef SWIG
 template<typename index_t>
 class kd_query_result {
 public:
@@ -302,4 +303,5 @@ public:
 		return static_cast<index_t>(queryResult.size());
 	}
 };
+#endif
 } // namespace nifly

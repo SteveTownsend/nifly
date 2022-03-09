@@ -111,15 +111,13 @@ void NiGeometryData::Sync(NiStreamReversible& stream) {
 void NiGeometryData::GetChildRefs(std::set<NiRef*>& refs) {
 	NiObject::GetChildRefs(refs);
 
-	if (!additionalDataRef.IsEmpty())
-		refs.insert(&additionalDataRef);
+	refs.insert(&additionalDataRef);
 }
 
 void NiGeometryData::GetChildIndices(std::vector<uint32_t>& indices) {
 	NiObject::GetChildIndices(indices);
 
-	if (!additionalDataRef.IsEmpty())
-		indices.push_back(additionalDataRef.index);
+	indices.push_back(additionalDataRef.index);
 }
 
 uint16_t NiGeometryData::GetNumVertices() const {
@@ -609,23 +607,17 @@ void BSTriShape::notifyVerticesDelete(const std::vector<uint16_t>& vertIndices) 
 void BSTriShape::GetChildRefs(std::set<NiRef*>& refs) {
 	NiAVObject::GetChildRefs(refs);
 
-	if (!skinInstanceRef.IsEmpty())
-		refs.insert(&skinInstanceRef);
-	if (!shaderPropertyRef.IsEmpty())
-		refs.insert(&shaderPropertyRef);
-	if (!alphaPropertyRef.IsEmpty())
-		refs.insert(&alphaPropertyRef);
+	refs.insert(&skinInstanceRef);
+	refs.insert(&shaderPropertyRef);
+	refs.insert(&alphaPropertyRef);
 }
 
 void BSTriShape::GetChildIndices(std::vector<uint32_t>& indices) {
 	NiAVObject::GetChildIndices(indices);
 
-	if (!skinInstanceRef.IsEmpty())
-		indices.push_back(skinInstanceRef.index);
-	if (!shaderPropertyRef.IsEmpty())
-		indices.push_back(shaderPropertyRef.index);
-	if (!alphaPropertyRef.IsEmpty())
-		indices.push_back(alphaPropertyRef.index);
+	indices.push_back(skinInstanceRef.index);
+	indices.push_back(shaderPropertyRef.index);
+	indices.push_back(alphaPropertyRef.index);
 }
 
 std::vector<Vector3>& BSTriShape::UpdateRawVertices() {
@@ -1148,9 +1140,9 @@ void BSTriShape::Create(NiVersion& version,
 		vertex.bitangentY = 0;
 		vertex.bitangentZ = 0;
 		vertex.normal[0] = vertex.normal[1] = vertex.normal[2] = 0;
-		std::memset(&vertex.colorData, 255, 4);
-		std::memset(&vertex.weights, 0, sizeof(float) * 4);
-		std::memset(&vertex.weightBones, 0, 4);
+		std::memset(vertex.colorData.data(), 255, vertex.colorData.size());
+		std::memset(vertex.weights.data(), 0, sizeof(float) * vertex.weights.size());
+		std::memset(vertex.weightBones.data(), 0, vertex.weightBones.size());
 		vertex.eyeData = 0.0f;
 	}
 
@@ -1611,27 +1603,19 @@ void NiGeometry::GetStringRefs(std::vector<NiStringRef*>& refs) {
 void NiGeometry::GetChildRefs(std::set<NiRef*>& refs) {
 	NiAVObject::GetChildRefs(refs);
 
-	if (!dataRef.IsEmpty())
-		refs.insert(&dataRef);
-	if (!skinInstanceRef.IsEmpty())
-		refs.insert(&skinInstanceRef);
-	if (!shaderPropertyRef.IsEmpty())
-		refs.insert(&shaderPropertyRef);
-	if (!alphaPropertyRef.IsEmpty())
-		refs.insert(&alphaPropertyRef);
+	refs.insert(&dataRef);
+	refs.insert(&skinInstanceRef);
+	refs.insert(&shaderPropertyRef);
+	refs.insert(&alphaPropertyRef);
 }
 
 void NiGeometry::GetChildIndices(std::vector<uint32_t>& indices) {
 	NiAVObject::GetChildIndices(indices);
 
-	if (!dataRef.IsEmpty())
-		indices.push_back(dataRef.index);
-	if (!skinInstanceRef.IsEmpty())
-		indices.push_back(skinInstanceRef.index);
-	if (!shaderPropertyRef.IsEmpty())
-		indices.push_back(shaderPropertyRef.index);
-	if (!alphaPropertyRef.IsEmpty())
-		indices.push_back(alphaPropertyRef.index);
+	indices.push_back(dataRef.index);
+	indices.push_back(skinInstanceRef.index);
+	indices.push_back(shaderPropertyRef.index);
+	indices.push_back(alphaPropertyRef.index);
 }
 
 bool NiGeometry::IsSkinned() const {

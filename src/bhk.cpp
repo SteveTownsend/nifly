@@ -15,19 +15,8 @@ void NiCollisionObject::Sync(NiStreamReversible& stream) {
 void NiCollisionObject::GetPtrs(std::set<NiPtr*>& ptrs) {
 	NiObject::GetPtrs(ptrs);
 
-	if (!targetRef.IsEmpty())
-		ptrs.insert(&targetRef);
+	ptrs.insert(&targetRef);
 }
-
-BoundingVolume::BoundingVolume() : bvUnion(new UnionBV) {}
-
-BoundingVolume::BoundingVolume(const BoundingVolume& other)
-	: collisionType(other.collisionType)
-	, bvSphere(other.bvSphere)
-	, bvBox(other.bvBox)
-	, bvCapsule(other.bvCapsule)
-	, bvUnion(new UnionBV(*other.bvUnion))
-	, bvHalfSpace(other.bvHalfSpace) {}
 
 BoundingVolume& BoundingVolume::operator=(const BoundingVolume& other) {
 	collisionType = other.collisionType;
@@ -71,15 +60,13 @@ void bhkNiCollisionObject::Sync(NiStreamReversible& stream) {
 void bhkNiCollisionObject::GetChildRefs(std::set<NiRef*>& refs) {
 	NiCollisionObject::GetChildRefs(refs);
 
-	if (!bodyRef.IsEmpty())
-		refs.insert(&bodyRef);
+	refs.insert(&bodyRef);
 }
 
 void bhkNiCollisionObject::GetChildIndices(std::vector<uint32_t>& indices) {
 	NiCollisionObject::GetChildIndices(indices);
 
-	if (!bodyRef.IsEmpty())
-		indices.push_back(bodyRef.index);
+	indices.push_back(bodyRef.index);
 }
 
 
@@ -196,15 +183,13 @@ void bhkTransformShape::Sync(NiStreamReversible& stream) {
 void bhkTransformShape::GetChildRefs(std::set<NiRef*>& refs) {
 	bhkShape::GetChildRefs(refs);
 
-	if (!shapeRef.IsEmpty())
-		refs.insert(&shapeRef);
+	refs.insert(&shapeRef);
 }
 
 void bhkTransformShape::GetChildIndices(std::vector<uint32_t>& indices) {
 	bhkShape::GetChildIndices(indices);
 
-	if (!shapeRef.IsEmpty())
-		indices.push_back(shapeRef.index);
+	indices.push_back(shapeRef.index);
 }
 
 
@@ -235,15 +220,13 @@ void bhkMoppBvTreeShape::Sync(NiStreamReversible& stream) {
 void bhkMoppBvTreeShape::GetChildRefs(std::set<NiRef*>& refs) {
 	bhkBvTreeShape::GetChildRefs(refs);
 
-	if (!shapeRef.IsEmpty())
-		refs.insert(&shapeRef);
+	refs.insert(&shapeRef);
 }
 
 void bhkMoppBvTreeShape::GetChildIndices(std::vector<uint32_t>& indices) {
 	bhkBvTreeShape::GetChildIndices(indices);
 
-	if (!shapeRef.IsEmpty())
-		indices.push_back(shapeRef.index);
+	indices.push_back(shapeRef.index);
 }
 
 
@@ -343,15 +326,13 @@ void bhkPackedNiTriStripsShape::Sync(NiStreamReversible& stream) {
 void bhkPackedNiTriStripsShape::GetChildRefs(std::set<NiRef*>& refs) {
 	bhkShapeCollection::GetChildRefs(refs);
 
-	if (!dataRef.IsEmpty())
-		refs.insert(&dataRef);
+	refs.insert(&dataRef);
 }
 
 void bhkPackedNiTriStripsShape::GetChildIndices(std::vector<uint32_t>& indices) {
 	bhkShapeCollection::GetChildIndices(indices);
 
-	if (!dataRef.IsEmpty())
-		indices.push_back(dataRef.index);
+	indices.push_back(dataRef.index);
 }
 
 
@@ -381,8 +362,7 @@ void bhkOrientHingedBodyAction::Sync(NiStreamReversible& stream) {
 void bhkOrientHingedBodyAction::GetPtrs(std::set<NiPtr*>& ptrs) {
 	bhkSerializable::GetPtrs(ptrs);
 
-	if (!bodyRef.IsEmpty())
-		ptrs.insert(&bodyRef);
+	ptrs.insert(&bodyRef);
 }
 
 
@@ -398,15 +378,13 @@ void bhkWorldObject::Sync(NiStreamReversible& stream) {
 void bhkWorldObject::GetChildRefs(std::set<NiRef*>& refs) {
 	bhkSerializable::GetChildRefs(refs);
 
-	if (!shapeRef.IsEmpty())
-		refs.insert(&shapeRef);
+	refs.insert(&shapeRef);
 }
 
 void bhkWorldObject::GetChildIndices(std::vector<uint32_t>& indices) {
 	bhkSerializable::GetChildIndices(indices);
 
-	if (!shapeRef.IsEmpty())
-		indices.push_back(shapeRef.index);
+	indices.push_back(shapeRef.index);
 }
 
 
@@ -643,10 +621,8 @@ void bhkBallSocketConstraintChain::GetPtrs(std::set<NiPtr*>& ptrs) {
 	bhkSerializable::GetPtrs(ptrs);
 
 	chainedEntityRefs.GetIndexPtrs(ptrs);
-	if (!entityARef.IsEmpty())
-		ptrs.insert(&entityARef);
-	if (!entityBRef.IsEmpty())
-		ptrs.insert(&entityBRef);
+	ptrs.insert(&entityARef);
+	ptrs.insert(&entityBRef);
 }
 
 
@@ -705,8 +681,7 @@ void bhkCompressedMeshShape::GetChildIndices(std::vector<uint32_t>& indices) {
 void bhkCompressedMeshShape::GetPtrs(std::set<NiPtr*>& ptrs) {
 	bhkShape::GetPtrs(ptrs);
 
-	if (!targetRef.IsEmpty())
-		ptrs.insert(&targetRef);
+	ptrs.insert(&targetRef);
 }
 
 

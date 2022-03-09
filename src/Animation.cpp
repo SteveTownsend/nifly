@@ -85,22 +85,19 @@ void NiTimeController::Sync(NiStreamReversible& stream) {
 void NiTimeController::GetChildRefs(std::set<NiRef*>& refs) {
 	NiObject::GetChildRefs(refs);
 
-	if (!nextControllerRef.IsEmpty())
-		refs.insert(&nextControllerRef);
+	refs.insert(&nextControllerRef);
 }
 
 void NiTimeController::GetChildIndices(std::vector<uint32_t>& indices) {
 	NiObject::GetChildIndices(indices);
 
-	if (!nextControllerRef.IsEmpty())
-		indices.push_back(nextControllerRef.index);
+	indices.push_back(nextControllerRef.index);
 }
 
 void NiTimeController::GetPtrs(std::set<NiPtr*>& ptrs) {
 	NiObject::GetPtrs(ptrs);
 
-	if (!targetRef.IsEmpty())
-		ptrs.insert(&targetRef);
+	ptrs.insert(&targetRef);
 }
 
 
@@ -112,8 +109,7 @@ void NiLookAtController::Sync(NiStreamReversible& stream) {
 void NiLookAtController::GetPtrs(std::set<NiPtr*>& ptrs) {
 	NiTimeController::GetPtrs(ptrs);
 
-	if (!lookAtNodePtr.IsEmpty())
-		ptrs.insert(&lookAtNodePtr);
+	ptrs.insert(&lookAtNodePtr);
 }
 
 
@@ -130,19 +126,15 @@ void NiPathController::Sync(NiStreamReversible& stream) {
 void NiPathController::GetChildRefs(std::set<NiRef*>& refs) {
 	NiTimeController::GetChildRefs(refs);
 
-	if (!pathDataRef.IsEmpty())
-		refs.insert(&pathDataRef);
-	if (!percentDataRef.IsEmpty())
-		refs.insert(&percentDataRef);
+	refs.insert(&pathDataRef);
+	refs.insert(&percentDataRef);
 }
 
 void NiPathController::GetChildIndices(std::vector<uint32_t>& indices) {
 	NiTimeController::GetChildIndices(indices);
 
-	if (!pathDataRef.IsEmpty())
-		indices.push_back(pathDataRef.index);
-	if (!percentDataRef.IsEmpty())
-		indices.push_back(percentDataRef.index);
+	indices.push_back(pathDataRef.index);
+	indices.push_back(percentDataRef.index);
 }
 
 
@@ -162,15 +154,13 @@ void NiUVController::Sync(NiStreamReversible& stream) {
 void NiUVController::GetChildRefs(std::set<NiRef*>& refs) {
 	NiTimeController::GetChildRefs(refs);
 
-	if (!dataRef.IsEmpty())
-		refs.insert(&dataRef);
+	refs.insert(&dataRef);
 }
 
 void NiUVController::GetChildIndices(std::vector<uint32_t>& indices) {
 	NiTimeController::GetChildIndices(indices);
 
-	if (!dataRef.IsEmpty())
-		indices.push_back(dataRef.index);
+	indices.push_back(dataRef.index);
 }
 
 
@@ -181,15 +171,13 @@ void BSFrustumFOVController::Sync(NiStreamReversible& stream) {
 void BSFrustumFOVController::GetChildRefs(std::set<NiRef*>& refs) {
 	NiTimeController::GetChildRefs(refs);
 
-	if (!interpolatorRef.IsEmpty())
-		refs.insert(&interpolatorRef);
+	refs.insert(&interpolatorRef);
 }
 
 void BSFrustumFOVController::GetChildIndices(std::vector<uint32_t>& indices) {
 	NiTimeController::GetChildIndices(indices);
 
-	if (!interpolatorRef.IsEmpty())
-		indices.push_back(interpolatorRef.index);
+	indices.push_back(interpolatorRef.index);
 }
 
 
@@ -231,51 +219,31 @@ void BSProceduralLightningController::Sync(NiStreamReversible& stream) {
 void BSProceduralLightningController::GetChildRefs(std::set<NiRef*>& refs) {
 	NiTimeController::GetChildRefs(refs);
 
-	if (!generationInterpRef.IsEmpty())
-		refs.insert(&generationInterpRef);
-	if (!mutationInterpRef.IsEmpty())
-		refs.insert(&mutationInterpRef);
-	if (!subdivisionInterpRef.IsEmpty())
-		refs.insert(&subdivisionInterpRef);
-	if (!numBranchesInterpRef.IsEmpty())
-		refs.insert(&numBranchesInterpRef);
-	if (!numBranchesVarInterpRef.IsEmpty())
-		refs.insert(&numBranchesVarInterpRef);
-	if (!lengthInterpRef.IsEmpty())
-		refs.insert(&lengthInterpRef);
-	if (!lengthVarInterpRef.IsEmpty())
-		refs.insert(&lengthVarInterpRef);
-	if (!widthInterpRef.IsEmpty())
-		refs.insert(&widthInterpRef);
-	if (!arcOffsetInterpRef.IsEmpty())
-		refs.insert(&arcOffsetInterpRef);
-	if (!shaderPropertyRef.IsEmpty())
-		refs.insert(&shaderPropertyRef);
+	refs.insert(&generationInterpRef);
+	refs.insert(&mutationInterpRef);
+	refs.insert(&subdivisionInterpRef);
+	refs.insert(&numBranchesInterpRef);
+	refs.insert(&numBranchesVarInterpRef);
+	refs.insert(&lengthInterpRef);
+	refs.insert(&lengthVarInterpRef);
+	refs.insert(&widthInterpRef);
+	refs.insert(&arcOffsetInterpRef);
+	refs.insert(&shaderPropertyRef);
 }
 
 void BSProceduralLightningController::GetChildIndices(std::vector<uint32_t>& indices) {
 	NiTimeController::GetChildIndices(indices);
 
-	if (!generationInterpRef.IsEmpty())
-		indices.push_back(generationInterpRef.index);
-	if (!mutationInterpRef.IsEmpty())
-		indices.push_back(mutationInterpRef.index);
-	if (!subdivisionInterpRef.IsEmpty())
-		indices.push_back(subdivisionInterpRef.index);
-	if (!numBranchesInterpRef.IsEmpty())
-		indices.push_back(numBranchesInterpRef.index);
-	if (!numBranchesVarInterpRef.IsEmpty())
-		indices.push_back(numBranchesVarInterpRef.index);
-	if (!lengthInterpRef.IsEmpty())
-		indices.push_back(lengthInterpRef.index);
-	if (!lengthVarInterpRef.IsEmpty())
-		indices.push_back(lengthVarInterpRef.index);
-	if (!widthInterpRef.IsEmpty())
-		indices.push_back(widthInterpRef.index);
-	if (!arcOffsetInterpRef.IsEmpty())
-		indices.push_back(arcOffsetInterpRef.index);
-	if (!shaderPropertyRef.IsEmpty())
-		indices.push_back(shaderPropertyRef.index);
+	indices.push_back(generationInterpRef.index);
+	indices.push_back(mutationInterpRef.index);
+	indices.push_back(subdivisionInterpRef.index);
+	indices.push_back(numBranchesInterpRef.index);
+	indices.push_back(numBranchesVarInterpRef.index);
+	indices.push_back(lengthInterpRef.index);
+	indices.push_back(lengthVarInterpRef.index);
+	indices.push_back(widthInterpRef.index);
+	indices.push_back(arcOffsetInterpRef.index);
+	indices.push_back(shaderPropertyRef.index);
 }
 
 
@@ -335,8 +303,7 @@ void NiGeomMorpherController::Sync(NiStreamReversible& stream) {
 void NiGeomMorpherController::GetChildRefs(std::set<NiRef*>& refs) {
 	NiInterpController::GetChildRefs(refs);
 
-	if (!dataRef.IsEmpty())
-		refs.insert(&dataRef);
+	refs.insert(&dataRef);
 
 	for (auto& m : interpWeights)
 		m.GetChildRefs(refs);
@@ -345,8 +312,7 @@ void NiGeomMorpherController::GetChildRefs(std::set<NiRef*>& refs) {
 void NiGeomMorpherController::GetChildIndices(std::vector<uint32_t>& indices) {
 	NiInterpController::GetChildIndices(indices);
 
-	if (!dataRef.IsEmpty())
-		indices.push_back(dataRef.index);
+	indices.push_back(dataRef.index);
 
 	for (auto& m : interpWeights)
 		m.GetChildIndices(indices);
@@ -361,15 +327,13 @@ void NiSingleInterpController::Sync(NiStreamReversible& stream) {
 void NiSingleInterpController::GetChildRefs(std::set<NiRef*>& refs) {
 	NiInterpController::GetChildRefs(refs);
 
-	if (!interpolatorRef.IsEmpty())
-		refs.insert(&interpolatorRef);
+	refs.insert(&interpolatorRef);
 }
 
 void NiSingleInterpController::GetChildIndices(std::vector<uint32_t>& indices) {
 	NiInterpController::GetChildIndices(indices);
 
-	if (!interpolatorRef.IsEmpty())
-		indices.push_back(interpolatorRef.index);
+	indices.push_back(interpolatorRef.index);
 }
 
 
@@ -380,15 +344,13 @@ void NiRollController::Sync(NiStreamReversible& stream) {
 void NiRollController::GetChildRefs(std::set<NiRef*>& refs) {
 	NiSingleInterpController::GetChildRefs(refs);
 
-	if (!dataRef.IsEmpty())
-		refs.insert(&dataRef);
+	refs.insert(&dataRef);
 }
 
 void NiRollController::GetChildIndices(std::vector<uint32_t>& indices) {
 	NiSingleInterpController::GetChildIndices(indices);
 
-	if (!dataRef.IsEmpty())
-		indices.push_back(dataRef.index);
+	indices.push_back(dataRef.index);
 }
 
 
@@ -493,15 +455,13 @@ void NiPSysEmitterCtlr::Sync(NiStreamReversible& stream) {
 void NiPSysEmitterCtlr::GetChildRefs(std::set<NiRef*>& refs) {
 	NiPSysModifierCtlr::GetChildRefs(refs);
 
-	if (!visInterpolatorRef.IsEmpty())
-		refs.insert(&visInterpolatorRef);
+	refs.insert(&visInterpolatorRef);
 }
 
 void NiPSysEmitterCtlr::GetChildIndices(std::vector<uint32_t>& indices) {
 	NiPSysModifierCtlr::GetChildIndices(indices);
 
-	if (!visInterpolatorRef.IsEmpty())
-		indices.push_back(visInterpolatorRef.index);
+	indices.push_back(visInterpolatorRef.index);
 }
 
 
@@ -513,8 +473,7 @@ void BSPSysMultiTargetEmitterCtlr::Sync(NiStreamReversible& stream) {
 void BSPSysMultiTargetEmitterCtlr::GetPtrs(std::set<NiPtr*>& ptrs) {
 	NiPSysEmitterCtlr::GetPtrs(ptrs);
 
-	if (!masterParticleSystemRef.IsEmpty())
-		ptrs.insert(&masterParticleSystemRef);
+	ptrs.insert(&masterParticleSystemRef);
 }
 
 
@@ -528,19 +487,15 @@ void NiBSplineInterpolator::Sync(NiStreamReversible& stream) {
 void NiBSplineInterpolator::GetChildRefs(std::set<NiRef*>& refs) {
 	NiInterpolator::GetChildRefs(refs);
 
-	if (!splineDataRef.IsEmpty())
-		refs.insert(&splineDataRef);
-	if (!basisDataRef.IsEmpty())
-		refs.insert(&basisDataRef);
+	refs.insert(&splineDataRef);
+	refs.insert(&basisDataRef);
 }
 
 void NiBSplineInterpolator::GetChildIndices(std::vector<uint32_t>& indices) {
 	NiInterpolator::GetChildIndices(indices);
 
-	if (!splineDataRef.IsEmpty())
-		indices.push_back(splineDataRef.index);
-	if (!basisDataRef.IsEmpty())
-		indices.push_back(basisDataRef.index);
+	indices.push_back(splineDataRef.index);
+	indices.push_back(basisDataRef.index);
 }
 
 
@@ -639,15 +594,13 @@ void NiBoolInterpolator::Sync(NiStreamReversible& stream) {
 void NiBoolInterpolator::GetChildRefs(std::set<NiRef*>& refs) {
 	NiKeyBasedInterpolator::GetChildRefs(refs);
 
-	if (!dataRef.IsEmpty())
-		refs.insert(&dataRef);
+	refs.insert(&dataRef);
 }
 
 void NiBoolInterpolator::GetChildIndices(std::vector<uint32_t>& indices) {
 	NiKeyBasedInterpolator::GetChildIndices(indices);
 
-	if (!dataRef.IsEmpty())
-		indices.push_back(dataRef.index);
+	indices.push_back(dataRef.index);
 }
 
 
@@ -659,15 +612,13 @@ void NiFloatInterpolator::Sync(NiStreamReversible& stream) {
 void NiFloatInterpolator::GetChildRefs(std::set<NiRef*>& refs) {
 	NiKeyBasedInterpolator::GetChildRefs(refs);
 
-	if (!dataRef.IsEmpty())
-		refs.insert(&dataRef);
+	refs.insert(&dataRef);
 }
 
 void NiFloatInterpolator::GetChildIndices(std::vector<uint32_t>& indices) {
 	NiKeyBasedInterpolator::GetChildIndices(indices);
 
-	if (!dataRef.IsEmpty())
-		indices.push_back(dataRef.index);
+	indices.push_back(dataRef.index);
 }
 
 
@@ -681,15 +632,13 @@ void NiTransformInterpolator::Sync(NiStreamReversible& stream) {
 void NiTransformInterpolator::GetChildRefs(std::set<NiRef*>& refs) {
 	NiKeyBasedInterpolator::GetChildRefs(refs);
 
-	if (!dataRef.IsEmpty())
-		refs.insert(&dataRef);
+	refs.insert(&dataRef);
 }
 
 void NiTransformInterpolator::GetChildIndices(std::vector<uint32_t>& indices) {
 	NiKeyBasedInterpolator::GetChildIndices(indices);
 
-	if (!dataRef.IsEmpty())
-		indices.push_back(dataRef.index);
+	indices.push_back(dataRef.index);
 }
 
 
@@ -701,15 +650,13 @@ void NiPoint3Interpolator::Sync(NiStreamReversible& stream) {
 void NiPoint3Interpolator::GetChildRefs(std::set<NiRef*>& refs) {
 	NiKeyBasedInterpolator::GetChildRefs(refs);
 
-	if (!dataRef.IsEmpty())
-		refs.insert(&dataRef);
+	refs.insert(&dataRef);
 }
 
 void NiPoint3Interpolator::GetChildIndices(std::vector<uint32_t>& indices) {
 	NiKeyBasedInterpolator::GetChildIndices(indices);
 
-	if (!dataRef.IsEmpty())
-		indices.push_back(dataRef.index);
+	indices.push_back(dataRef.index);
 }
 
 
@@ -726,19 +673,15 @@ void NiPathInterpolator::Sync(NiStreamReversible& stream) {
 void NiPathInterpolator::GetChildRefs(std::set<NiRef*>& refs) {
 	NiKeyBasedInterpolator::GetChildRefs(refs);
 
-	if (!pathDataRef.IsEmpty())
-		refs.insert(&pathDataRef);
-	if (!percentDataRef.IsEmpty())
-		refs.insert(&percentDataRef);
+	refs.insert(&pathDataRef);
+	refs.insert(&percentDataRef);
 }
 
 void NiPathInterpolator::GetChildIndices(std::vector<uint32_t>& indices) {
 	NiKeyBasedInterpolator::GetChildIndices(indices);
 
-	if (!pathDataRef.IsEmpty())
-		indices.push_back(pathDataRef.index);
-	if (!percentDataRef.IsEmpty())
-		indices.push_back(percentDataRef.index);
+	indices.push_back(pathDataRef.index);
+	indices.push_back(percentDataRef.index);
 }
 
 
@@ -761,30 +704,23 @@ void NiLookAtInterpolator::GetStringRefs(std::vector<NiStringRef*>& refs) {
 void NiLookAtInterpolator::GetChildRefs(std::set<NiRef*>& refs) {
 	NiInterpolator::GetChildRefs(refs);
 
-	if (!translateInterpRef.IsEmpty())
-		refs.insert(&translateInterpRef);
-	if (!rollInterpRef.IsEmpty())
-		refs.insert(&rollInterpRef);
-	if (!scaleInterpRef.IsEmpty())
-		refs.insert(&scaleInterpRef);
+	refs.insert(&translateInterpRef);
+	refs.insert(&rollInterpRef);
+	refs.insert(&scaleInterpRef);
 }
 
 void NiLookAtInterpolator::GetChildIndices(std::vector<uint32_t>& indices) {
 	NiInterpolator::GetChildIndices(indices);
 
-	if (!translateInterpRef.IsEmpty())
-		indices.push_back(translateInterpRef.index);
-	if (!rollInterpRef.IsEmpty())
-		indices.push_back(rollInterpRef.index);
-	if (!scaleInterpRef.IsEmpty())
-		indices.push_back(scaleInterpRef.index);
+	indices.push_back(translateInterpRef.index);
+	indices.push_back(rollInterpRef.index);
+	indices.push_back(scaleInterpRef.index);
 }
 
 void NiLookAtInterpolator::GetPtrs(std::set<NiPtr*>& ptrs) {
 	NiInterpolator::GetPtrs(ptrs);
 
-	if (!lookAtRef.IsEmpty())
-		ptrs.insert(&lookAtRef);
+	ptrs.insert(&lookAtRef);
 }
 
 
@@ -803,15 +739,13 @@ void BSTreadTransfInterpolator::GetStringRefs(std::vector<NiStringRef*>& refs) {
 void BSTreadTransfInterpolator::GetChildRefs(std::set<NiRef*>& refs) {
 	NiInterpolator::GetChildRefs(refs);
 
-	if (!dataRef.IsEmpty())
-		refs.insert(&dataRef);
+	refs.insert(&dataRef);
 }
 
 void BSTreadTransfInterpolator::GetChildIndices(std::vector<uint32_t>& indices) {
 	NiInterpolator::GetChildIndices(indices);
 
-	if (!dataRef.IsEmpty())
-		indices.push_back(dataRef.index);
+	indices.push_back(dataRef.index);
 }
 
 
@@ -907,28 +841,23 @@ void NiControllerSequence::GetStringRefs(std::vector<NiStringRef*>& refs) {
 void NiControllerSequence::GetChildRefs(std::set<NiRef*>& refs) {
 	NiSequence::GetChildRefs(refs);
 
-	if (!textKeyRef.IsEmpty())
-		refs.insert(&textKeyRef);
-	if (!animNotesRef.IsEmpty())
-		refs.insert(&animNotesRef);
+	refs.insert(&textKeyRef);
+	refs.insert(&animNotesRef);
 	animNotesRefs.GetIndexPtrs(refs);
 }
 
 void NiControllerSequence::GetChildIndices(std::vector<uint32_t>& indices) {
 	NiSequence::GetChildIndices(indices);
 
-	if (!textKeyRef.IsEmpty())
-		indices.push_back(textKeyRef.index);
-	if (!animNotesRef.IsEmpty())
-		indices.push_back(animNotesRef.index);
+	indices.push_back(textKeyRef.index);
+	indices.push_back(animNotesRef.index);
 	animNotesRefs.GetIndices(indices);
 }
 
 void NiControllerSequence::GetPtrs(std::set<NiPtr*>& ptrs) {
 	NiSequence::GetPtrs(ptrs);
 
-	if (!managerRef.IsEmpty())
-		ptrs.insert(&managerRef);
+	ptrs.insert(&managerRef);
 }
 
 
@@ -943,14 +872,12 @@ void NiControllerManager::GetChildRefs(std::set<NiRef*>& refs) {
 	NiTimeController::GetChildRefs(refs);
 
 	controllerSequenceRefs.GetIndexPtrs(refs);
-	if (!objectPaletteRef.IsEmpty())
-		refs.insert(&objectPaletteRef);
+	refs.insert(&objectPaletteRef);
 }
 
 void NiControllerManager::GetChildIndices(std::vector<uint32_t>& indices) {
 	NiTimeController::GetChildIndices(indices);
 
 	controllerSequenceRefs.GetIndices(indices);
-	if (!objectPaletteRef.IsEmpty())
-		indices.push_back(objectPaletteRef.index);
+	indices.push_back(objectPaletteRef.index);
 }

@@ -499,26 +499,21 @@ void NiSkinInstance::Sync(NiStreamReversible& stream) {
 void NiSkinInstance::GetChildRefs(std::set<NiRef*>& refs) {
 	NiObject::GetChildRefs(refs);
 
-	if (!dataRef.IsEmpty())
-		refs.insert(&dataRef);
-	if (!skinPartitionRef.IsEmpty())
-		refs.insert(&skinPartitionRef);
+	refs.insert(&dataRef);
+	refs.insert(&skinPartitionRef);
 }
 
 void NiSkinInstance::GetChildIndices(std::vector<uint32_t>& indices) {
 	NiObject::GetChildIndices(indices);
 
-	if (!dataRef.IsEmpty())
-		indices.push_back(dataRef.index);
-	if (!skinPartitionRef.IsEmpty())
-		indices.push_back(skinPartitionRef.index);
+	indices.push_back(dataRef.index);
+	indices.push_back(skinPartitionRef.index);
 }
 
 void NiSkinInstance::GetPtrs(std::set<NiPtr*>& ptrs) {
 	NiObject::GetPtrs(ptrs);
 
-	if (!targetRef.IsEmpty())
-		ptrs.insert(&targetRef);
+	ptrs.insert(&targetRef);
 	boneRefs.GetIndexPtrs(ptrs);
 }
 
@@ -569,7 +564,6 @@ void BSSkinInstance::GetChildIndices(std::vector<uint32_t>& indices) {
 void BSSkinInstance::GetPtrs(std::set<NiPtr*>& ptrs) {
 	NiObject::GetPtrs(ptrs);
 
-	if (!targetRef.IsEmpty())
-		ptrs.insert(&targetRef);
+	ptrs.insert(&targetRef);
 	boneRefs.GetIndexPtrs(ptrs);
 }

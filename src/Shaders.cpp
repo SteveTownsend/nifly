@@ -530,15 +530,13 @@ void BSLightingShaderProperty::GetStringRefs(std::vector<NiStringRef*>& refs) {
 void BSLightingShaderProperty::GetChildRefs(std::set<NiRef*>& refs) {
 	BSShaderProperty::GetChildRefs(refs);
 
-	if (!textureSetRef.IsEmpty())
-		refs.insert(&textureSetRef);
+	refs.insert(&textureSetRef);
 }
 
 void BSLightingShaderProperty::GetChildIndices(std::vector<uint32_t>& indices) {
 	BSShaderProperty::GetChildIndices(indices);
 
-	if (!textureSetRef.IsEmpty())
-		indices.push_back(textureSetRef.index);
+	indices.push_back(textureSetRef.index);
 }
 
 bool BSLightingShaderProperty::IsSkinTinted() const {
@@ -756,15 +754,13 @@ void BSShaderPPLightingProperty::Sync(NiStreamReversible& stream) {
 void BSShaderPPLightingProperty::GetChildRefs(std::set<NiRef*>& refs) {
 	BSShaderLightingProperty::GetChildRefs(refs);
 
-	if (!textureSetRef.IsEmpty())
-		refs.insert(&textureSetRef);
+	refs.insert(&textureSetRef);
 }
 
 void BSShaderPPLightingProperty::GetChildIndices(std::vector<uint32_t>& indices) {
 	BSShaderLightingProperty::GetChildIndices(indices);
 
-	if (!textureSetRef.IsEmpty())
-		indices.push_back(textureSetRef.index);
+	indices.push_back(textureSetRef.index);
 }
 
 bool BSShaderPPLightingProperty::IsSkinned() const {

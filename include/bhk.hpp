@@ -360,7 +360,9 @@ enum PropagationMode : uint32_t {
 enum CollisionMode : uint32_t { CM_USE_OBB, CM_USE_TRI, CM_USE_ABV, CM_NOTEST, CM_USE_NIBOUND };
 
 enum BoundVolumeType : uint32_t {
-	BASE_BV = 255,
+	// use signed max to work in SWIG
+	BASE_BV = 0x7FFFFFFF,
+	// BASE_BV = 0xFFFFFFFF,
 	SPHERE_BV = 0,
 	BOX_BV = 1,
 	CAPSULE_BV = 2,
@@ -399,12 +401,20 @@ public:
 	BoxBV bvBox;
 	CapsuleBV bvCapsule;
 private:
-	std::unique_ptr<UnionBV> bvUnion;
+	std::unique_ptr<UnionBV> bvUnion = std::make_unique<UnionBV>();
 public:
 	HalfSpaceBV bvHalfSpace;
 
-	BoundingVolume();
-	BoundingVolume(const BoundingVolume& other);
+	BoundingVolume() = default;
+
+	BoundingVolume(const BoundingVolume& other)
+		: collisionType(other.collisionType)
+		, bvSphere(other.bvSphere)
+		, bvBox(other.bvBox)
+		, bvCapsule(other.bvCapsule)
+		, bvUnion(std::make_unique<UnionBV>(*other.bvUnion))
+		, bvHalfSpace(other.bvHalfSpace) {}
+		
 	BoundingVolume& operator=(const BoundingVolume& other);
 
 	void Sync(NiStreamReversible& stream);

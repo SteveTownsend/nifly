@@ -96,15 +96,13 @@ void BSMultiBound::Sync(NiStreamReversible& stream) {
 void BSMultiBound::GetChildRefs(std::set<NiRef*>& refs) {
 	NiObject::GetChildRefs(refs);
 
-	if (!dataRef.IsEmpty())
-		refs.insert(&dataRef);
+	refs.insert(&dataRef);
 }
 
 void BSMultiBound::GetChildIndices(std::vector<uint32_t>& indices) {
 	NiObject::GetChildIndices(indices);
 
-	if (!dataRef.IsEmpty())
-		indices.push_back(dataRef.index);
+	indices.push_back(dataRef.index);
 }
 
 
@@ -118,15 +116,13 @@ void BSMultiBoundNode::Sync(NiStreamReversible& stream) {
 void BSMultiBoundNode::GetChildRefs(std::set<NiRef*>& refs) {
 	NiNode::GetChildRefs(refs);
 
-	if (!multiBoundRef.IsEmpty())
-		refs.insert(&multiBoundRef);
+	refs.insert(&multiBoundRef);
 }
 
 void BSMultiBoundNode::GetChildIndices(std::vector<uint32_t>& indices) {
 	NiNode::GetChildIndices(indices);
 
-	if (!multiBoundRef.IsEmpty())
-		indices.push_back(multiBoundRef.index);
+	indices.push_back(multiBoundRef.index);
 }
 
 
@@ -170,15 +166,13 @@ void NiLODNode::Sync(NiStreamReversible& stream) {
 void NiLODNode::GetChildRefs(std::set<NiRef*>& refs) {
 	NiSwitchNode::GetChildRefs(refs);
 
-	if (!lodLevelData.IsEmpty())
-		refs.insert(&lodLevelData);
+	refs.insert(&lodLevelData);
 }
 
 void NiLODNode::GetChildIndices(std::vector<uint32_t>& indices) {
 	NiSwitchNode::GetChildIndices(indices);
 
-	if (!lodLevelData.IsEmpty())
-		indices.push_back(lodLevelData.index);
+	indices.push_back(lodLevelData.index);
 }
 
 
