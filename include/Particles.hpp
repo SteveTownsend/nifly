@@ -179,7 +179,7 @@ public:
 	void Sync(NiStreamReversible& stream);
 };
 
-class NiPSysEmitterCtlr : public NiCloneableStreamable<NiPSysEmitterCtlr, NiPSysModifierCtlr> {
+STREAMABLECLASSDEF(NiPSysEmitterCtlr, NiPSysModifierCtlr) {
 public:
 	NiBlockRef<NiPSysEmitterCtlrData> dataRef;
 	NiBlockRef<NiInterpolator> visInterpolatorRef;
@@ -194,8 +194,7 @@ public:
 
 class BSMasterParticleSystem;
 
-class BSPSysMultiTargetEmitterCtlr
-	: public NiCloneableStreamable<BSPSysMultiTargetEmitterCtlr, NiPSysEmitterCtlr> {
+STREAMABLECLASSDEF(BSPSysMultiTargetEmitterCtlr, NiPSysEmitterCtlr) {
 public:
 	uint16_t maxEmitters = 0;
 	NiBlockPtr<BSMasterParticleSystem> masterParticleSystemRef;

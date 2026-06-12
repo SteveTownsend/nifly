@@ -1007,9 +1007,10 @@ template<typename T>
 class NiBlockRefShortArray : public NiBlockRefArray<T> {
 public:
 	using base = NiBlockRefArray<T>;
-	using base::arraySize;
+protected:
 	using base::refs;
-
+public:
+	using base::arraySize;
 	void Sync(NiStreamReversible& stream) override {
 		if (stream.GetMode() == NiStreamReversible::Mode::Writing)
 			base::CleanInvalidRefs();
