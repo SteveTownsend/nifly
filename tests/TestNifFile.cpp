@@ -23,14 +23,14 @@ std::tuple<std::string, std::string, std::string> GetFileTuple(const char* fileN
 }
 
 TEST_CASE("Load not existing file", "[NifFile]") {
-	constexpr auto fileName = "not_existing.nif";
+	constexpr const char * fileName = "not_existing.nif";
 
 	NifFile nif;
-	REQUIRE(nif.Load(fileName) != 0);
+	REQUIRE(nif.Load(std::string(fileName)) != 0);
 }
 
 TEST_CASE("Load and save static file (SE)", "[NifFile]") {
-	constexpr auto fileName = "TestNifFile_Static_SE";
+	constexpr const char * fileName = "TestNifFile_Static_SE";
 	const auto [fileInput, fileOutput, fileExpected] = GetFileTuple(fileName, nifSuffix);
 
 	NifFile nif;

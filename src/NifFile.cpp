@@ -176,6 +176,11 @@ int NifFile::Load(const std::filesystem::path& fileName, const NifLoadOptions& o
 	return Load(file, options);
 }
 
+int NifFile::Load(const std::string& fileName, const NifLoadOptions& options) {
+	std::ifstream file(fileName, std::ios::in | std::ios::binary);
+	return Load(file, options);
+}
+
 int NifFile::Load(std::istream& file, const NifLoadOptions& options) {
 	Clear();
 
@@ -1471,6 +1476,11 @@ uint32_t NifFile::CloneNamedNode(const std::string& nodeName, NifFile* srcNif) {
 }
 
 int NifFile::Save(const std::filesystem::path& fileName, const NifSaveOptions& options) {
+	std::ofstream file(fileName, std::ios::out | std::ios::binary);
+	return Save(file, options);
+}
+
+int NifFile::Save(const std::string& fileName, const NifSaveOptions& options) {
 	std::ofstream file(fileName, std::ios::out | std::ios::binary);
 	return Save(file, options);
 }

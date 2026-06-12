@@ -100,8 +100,10 @@ public:
 	void CopyFrom(const NifFile& other);
 
 	int Load(const std::filesystem::path& fileName, const NifLoadOptions& options = NifLoadOptions());
+	int Load(const std::string& fileName, const NifLoadOptions& options = NifLoadOptions());
 	int Load(std::istream& file, const NifLoadOptions& options = NifLoadOptions());
 	int Save(const std::filesystem::path& fileName, const NifSaveOptions& options = NifSaveOptions());
+	int Save(const std::string& fileName, const NifSaveOptions& options = NifSaveOptions());
 	int Save(std::ostream& file, const NifSaveOptions& options = NifSaveOptions());
 
 	// Update geometry bounds and delete unreferenced blocks
