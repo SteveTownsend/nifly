@@ -78,7 +78,7 @@ enum SkyrimShaderPropertyFlags1 : uint32_t {
 	SLSF1_PARALLAX_OCCLUSION = 1 << 28,
 	SLSF1_EXTERNAL_EMITTANCE = 1 << 29,
 	SLSF1_SOFT_EFFECT = 1 << 30,
-	SLSF1_ZBUFFER_TEST = static_cast<uint32_t>(1) << 31				// Enables Z-Buffer testing
+	SLSF1_ZBUFFER_TEST = 1u << 31				// Enables Z-Buffer testing
 };
 
 enum SkyrimShaderPropertyFlags2 : uint32_t {
@@ -113,7 +113,7 @@ enum SkyrimShaderPropertyFlags2 : uint32_t {
 	SLSF2_UNUSED02 = 1 << 28,
 	SLSF2_TREE_ANIM = 1 << 29,					// Enables vertex animation, flutter animation
 	SLSF2_EFFECT_LIGHTING = 1 << 30,
-	SLSF2_HD_LOD_OBJECTS = static_cast<uint32_t>(1) << 31
+	SLSF2_HD_LOD_OBJECTS = 1u << 31
 };
 
 enum Fallout4ShaderPropertyFlags1 : uint32_t {
@@ -148,7 +148,7 @@ enum Fallout4ShaderPropertyFlags1 : uint32_t {
 	F4SF1_CHARACTER_LIGHTING = 1 << 28,
 	F4SF1_EXTERNAL_EMITTANCE = 1 << 29,
 	F4SF1_SOFT_EFFECT = 1 << 30,
-	F4SF1_ZBUFFER_TEST = static_cast<uint32_t>(1) << 31				// Enables Z-Buffer testing
+	F4SF1_ZBUFFER_TEST = 1u << 31
 };
 
 enum Fallout4ShaderPropertyFlags2 : uint32_t {
@@ -183,7 +183,7 @@ enum Fallout4ShaderPropertyFlags2 : uint32_t {
 	F4SF2_PIPBOY_SCREEN = 1 << 28,
 	F4SF2_TREE_ANIM = 1 << 29,
 	F4SF2_EFFECT_LIGHTING = 1 << 30,
-	F4SF2_REFRACTION_WRITES_DEPTH = static_cast<uint32_t>(1) << 31
+	F4SF2_REFRACTION_WRITES_DEPTH = 1u << 31
 };
 
 enum FO3ShadingFlags : uint16_t {
@@ -223,7 +223,7 @@ enum FO3ShaderFlags : uint32_t {
 	F3SF1_PARALLAX_OCCLUSION = 1 << 28,
 	F3SF1_EXTERNAL_EMITTANCE = 1 << 29,
 	F3SF1_SHADOW_MAP = 1 << 30,
-	F3SF1_ZBUFFER_TEST = static_cast<uint32_t>(1) << 31
+	F3SF1_ZBUFFER_TEST = 1u << 31
 };
 
 enum FO3ShaderFlags2 : uint32_t {
@@ -258,7 +258,7 @@ enum FO3ShaderFlags2 : uint32_t {
 	F3SF2_UNKNOWN_7 = 1 << 28,
 	F3SF2_UNKNOWN_8 = 1 << 29,
 	F3SF2_UNKNOWN_9 = 1 << 30,
-	F3SF2_UNKNOWN_10 = static_cast<uint32_t>(1) << 31
+	F3SF2_UNKNOWN_10 = 1u << 31
 };
 
 CLONEABLECLASSDEF(NiProperty, NiObjectNET) {};
