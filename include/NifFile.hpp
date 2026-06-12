@@ -147,7 +147,7 @@ public:
 
 		auto rootNode = std::make_unique<NODETYPE>();
 		rootNode->name.get() = rootName.c_str();
-		hdr.AddBlock(std::move(rootNode));
+		hdr.AddBlock(rootNode.release());
 
 		isValid = true;
 	}
@@ -178,7 +178,7 @@ public:
 	std::string GetNodeName(const uint32_t blockID) const;
 	void SetNodeName(const uint32_t blockID, const std::string& newName);
 
-	uint32_t AssignExtraData(NiAVObject* target, std::unique_ptr<NiExtraData> extraData);
+	uint32_t AssignExtraData(NiAVObject* target, NiExtraData* extraData);
 	void AddStringExtraDataToNode(const int blockID, const std::string& edName, const std::string& edValue);
 
 	// Explicitly sets the order of shapes to a new one.
@@ -628,7 +628,7 @@ public:
 
 	// Assigns a new alpha property block to the shape/shader.
 	// Removes any existing ones. Pointer is moved to the file.
-	uint32_t AssignAlphaProperty(NiShape* shape, std::unique_ptr<NiAlphaProperty> alphaProp);
+	uint32_t AssignAlphaProperty(NiShape* shape, NiAlphaProperty* alphaProp);
 
 	// Removes any existing alpha properties for the shape/shader.
 	void RemoveAlphaProperty(NiShape* shape);

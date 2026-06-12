@@ -14,21 +14,21 @@ namespace nifly {
 
 class NiFactory {
 public:
-	virtual std::unique_ptr<NiObject> Create() = 0;
-	virtual std::unique_ptr<NiObject> Load(NiIStream& stream) = 0;
+	virtual NiObject* Create() = 0;
+	virtual NiObject* Load(NiIStream& stream) = 0;
 
 	virtual ~NiFactory() = default;
 };
 
 template<typename T>
-class NiFactoryType final : public NiFactory {
+class NiFactoryType FINALCLASS : public NiFactory {
 public:
 	// Create new NiObject
-	std::unique_ptr<NiObject> Create() override { return std::make_unique<T>(); }
+	NiObject* Create() override { return new T; }
 
 	// Load new NiObject from file
-	std::unique_ptr<NiObject> Load(NiIStream& stream) override {
-		auto nio = std::make_unique<T>();
+	NiObject* Load(NiIStream& stream) override {
+		T* nio = new T;
 		nio->Get(stream);
 		return nio;
 	}

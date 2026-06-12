@@ -107,7 +107,9 @@ void NifFile::CopyFrom(const NifFile& other) {
 	blocks.resize(nBlocks);
 
 	for (uint32_t i = 0; i < nBlocks; i++)
-		blocks[i] = other.blocks[i]->Clone();
+	{
+		blocks[i].reset(other.blocks[i]->Clone());
+	}
 
 	hdr.SetBlockReference(&blocks);
 	LinkGeomData();
@@ -204,7 +206,7 @@ int NifFile::Load(std::istream& file, const NifLoadOptions& options) {
 
 			auto nifactory = nifactories.GetFactoryByName(blockTypeStr);
 			if (nifactory) {
-				blocks[i] = nifactory->Load(stream);
+				blocks[i].reset(nifactory->Load(stream));
 			}
 			else {
 				if (version.File() < V20_2_0_5) {
@@ -767,11 +769,11 @@ NiNode* NifFile::AddNode(const std::string& nodeName, const MatTransform& xformT
 	if (!parent)
 		return nullptr;
 
-	auto newNode = std::make_unique<NiNode>();
+	std::unique_ptr<NiNode> newNode(new NiNode);
 	newNode->name.get() = nodeName;
 	newNode->SetTransformToParent(xformToParent);
 
-	uint32_t newNodeId = hdr.AddBlock(std::move(newNode));
+	uint32_t newNodeId = hdr.AddBlock(newNode.release());
 	if (newNodeId != NIF_NPOS)
 		parent->childRefs.AddBlockRef(newNodeId);
 
@@ -819,10 +821,23 @@ void NifFile::SetNodeName(const uint32_t blockID, const std::string& newName) {
 	node->name.get() = newName;
 }
 
-uint32_t NifFile::AssignExtraData(NiAVObject* target, std::unique_ptr<NiExtraData> extraData) {
-	uint32_t extraDataId = hdr.AddBlock(std::move(extraData));
+uint32_t NifFile::AssignExtraData(NiAVObject* target, NiExtraData* extraData) {
+	int extraDataId = hdr.AddBlock(extraData);
 	target->extraDataRefs.AddBlockRef(extraDataId);
 	return extraDataId;
+}
+
+void NifFile::AddStringExtraDataToNode(const int blockID, const std::string& edName, const std::string& edValue) {
+	std::unique_ptr<NiStringExtraData> extraData(new NiStringExtraData);
+
+	int nameId(hdr.AddOrFindStringId(edName));
+	extraData->name.SetIndex(nameId);
+	extraData->name.get() = edName;
+	int valueId(hdr.AddOrFindStringId(edValue));
+	extraData->stringData.SetIndex(nameId);
+	extraData->stringData.get() = edValue;
+
+	AssignExtraData(hdr.GetBlock<NiNode>(blockID), extraData.release());
 }
 
 NiShader* NifFile::GetShader(NiShape* shape) const {
@@ -1283,9 +1298,9 @@ void NifFile::CloneChildren(NiObject* block, NifFile* srcNif) {
 		for (auto& r : refs) {
 			auto srcChild = srcNif->hdr.GetBlock<NiObject>(r);
 			if (srcChild) {
-				auto destChildS = srcChild->Clone();
+				std::unique_ptr<NiObject> destChildS(srcChild->Clone());
 				auto destChild = destChildS.get();
-				uint32_t destId = hdr.AddBlock(std::move(destChildS));
+				uint32_t destId = hdr.AddBlock(destChildS.release());
 
 				uint32_t oldId = r->index;
 				r->index = destId;
@@ -1328,11 +1343,11 @@ NiShape* NifFile::CloneShape(NiShape* srcShape, const std::string& destShapeName
 	auto srcRootNode = srcNif->GetRootNode();
 
 	// Geometry
-	auto destShapeS = srcShape->Clone();
+	std::unique_ptr<NiShape> destShapeS(srcShape->Clone());
 	auto destShape = destShapeS.get();
 	destShape->name.get() = destShapeName;
 
-	int destId = hdr.AddBlock(std::move(destShapeS));
+	int destId = hdr.AddBlock(destShapeS.release());
 	if (srcNif == this) {
 		// Assign copied geometry to the same parent
 		auto parentNode = GetParentNode(srcShape);
@@ -1445,14 +1460,14 @@ uint32_t NifFile::CloneNamedNode(const std::string& nodeName, NifFile* srcNif) {
 	if (!srcNode)
 		return NIF_NPOS;
 
-	auto destNode = srcNode->Clone();
+	std::unique_ptr<NiNode> destNode(srcNode->Clone());
 	destNode->name.get() = nodeName;
 	destNode->collisionRef.Clear();
 	destNode->controllerRef.Clear();
 	destNode->childRefs.Clear();
 	destNode->effectRefs.Clear();
 
-	return hdr.AddBlock(std::move(destNode));
+	return hdr.AddBlock(destNode.release());
 }
 
 int NifFile::Save(const std::filesystem::path& fileName, const NifSaveOptions& options) {
@@ -1783,7 +1798,7 @@ OptResult NifFile::OptimizeFor(OptOptions& options) {
 			}
 
 			auto bsOptShapeObserver = bsOptShape.get();
-			hdr.ReplaceBlock(GetBlockID(shape), std::move(bsOptShape));
+			hdr.ReplaceBlock(GetBlockID(shape), bsOptShape.release());
 			UpdateSkinPartitions(bsOptShapeObserver);
 		}
 
@@ -1896,7 +1911,7 @@ OptResult NifFile::OptimizeFor(OptOptions& options) {
 			else
 				bsOptShape = std::make_unique<NiTriShape>();
 
-			int dataId = hdr.AddBlock(std::move(bsOptShapeDataS));
+			int dataId = hdr.AddBlock(bsOptShapeDataS.release());
 			bsOptShape->DataRef()->index = dataId;
 			bsOptShape->SetGeomData(bsOptShapeData);
 			bsOptShapeData->Create(hdr.GetVersion(),
@@ -1970,7 +1985,7 @@ OptResult NifFile::OptimizeFor(OptOptions& options) {
 				result.shapesTangentsAdded.push_back(shapeName);
 
 			auto bsOptShapeObserver = bsOptShape.get();
-			hdr.ReplaceBlock(GetBlockID(shape), std::move(bsOptShape));
+			hdr.ReplaceBlock(GetBlockID(shape), bsOptShape.release());
 			UpdateSkinPartitions(bsOptShapeObserver);
 		}
 
@@ -2147,17 +2162,17 @@ NiShape* NifFile::CreateShapeFromData(const std::string& shapeName,
 		auto nifTexset = std::make_unique<BSShaderTextureSet>(hdr.GetVersion());
 
 		auto nifShader = std::make_unique<BSLightingShaderProperty>(hdr.GetVersion());
-		nifShader->TextureSetRef()->index = hdr.AddBlock(std::move(nifTexset));
+		nifShader->TextureSetRef()->index = hdr.AddBlock(nifTexset.release());
 		nifShader->SetSkinned(false);
 
 		triShape->name.get() = shapeName;
 
-		int shaderID = hdr.AddBlock(std::move(nifShader));
+		int shaderID = hdr.AddBlock(nifShader.release());
 		triShape->ShaderPropertyRef()->index = shaderID;
 
 		shapeResult = triShape.get();
 
-		int shapeID = hdr.AddBlock(std::move(triShape));
+		int shapeID = hdr.AddBlock(triShape.release());
 		rootNode->childRefs.AddBlockRef(shapeID);
 	}
 	else if (version.IsFO4() || version.IsFO76()) {
@@ -2168,7 +2183,7 @@ NiShape* NifFile::CreateShapeFromData(const std::string& shapeName,
 		auto nifTexset = std::make_unique<BSShaderTextureSet>(hdr.GetVersion());
 
 		auto nifShader = std::make_unique<BSLightingShaderProperty>(hdr.GetVersion());
-		nifShader->TextureSetRef()->index = hdr.AddBlock(std::move(nifTexset));
+		nifShader->TextureSetRef()->index = hdr.AddBlock(nifTexset.release());
 
 		std::string wetShaderName = "template/OutfitTemplate_Wet.bgsm";
 		nifShader->SetWetMaterialName(wetShaderName);
@@ -2176,12 +2191,12 @@ NiShape* NifFile::CreateShapeFromData(const std::string& shapeName,
 
 		nifBSTriShape->name.get() = shapeName;
 
-		int shaderID = hdr.AddBlock(std::move(nifShader));
+		int shaderID = hdr.AddBlock(nifShader.release());
 		nifBSTriShape->ShaderPropertyRef()->index = shaderID;
 
 		shapeResult = nifBSTriShape.get();
 
-		int shapeID = hdr.AddBlock(std::move(nifBSTriShape));
+		int shapeID = hdr.AddBlock(nifBSTriShape.release());
 		rootNode->childRefs.AddBlockRef(shapeID);
 	}
 	else {
@@ -2193,15 +2208,15 @@ NiShape* NifFile::CreateShapeFromData(const std::string& shapeName,
 
 		if (version.IsSK()) {
 			nifShader = std::make_unique<BSLightingShaderProperty>(hdr.GetVersion());
-			nifShader->TextureSetRef()->index = hdr.AddBlock(std::move(nifTexset));
+			nifShader->TextureSetRef()->index = hdr.AddBlock(nifTexset.release());
 			nifShader->SetSkinned(false);
-			shaderID = hdr.AddBlock(std::move(nifShader));
+			shaderID = hdr.AddBlock(nifShader.release());
 		}
 		else {
 			nifShaderPP = std::make_unique<BSShaderPPLightingProperty>();
-			nifShaderPP->TextureSetRef()->index = hdr.AddBlock(std::move(nifTexset));
+			nifShaderPP->TextureSetRef()->index = hdr.AddBlock(nifTexset.release());
 			nifShaderPP->SetSkinned(false);
-			shaderID = hdr.AddBlock(std::move(nifShaderPP));
+			shaderID = hdr.AddBlock(nifShaderPP.release());
 		}
 
 		auto nifTriShape = std::make_unique<NiTriShape>();
@@ -2216,13 +2231,13 @@ NiShape* NifFile::CreateShapeFromData(const std::string& shapeName,
 		nifShapeData->Create(hdr.GetVersion(), v, t, uv, norms);
 		nifTriShape->SetGeomData(nifShapeData.get());
 
-		int dataID = hdr.AddBlock(std::move(nifShapeData));
+		int dataID = hdr.AddBlock(nifShapeData.release());
 		nifTriShape->DataRef()->index = dataID;
 		nifTriShape->SetSkinned(false);
 
 		shapeResult = nifTriShape.get();
 
-		int shapeID = hdr.AddBlock(std::move(nifTriShape));
+		int shapeID = hdr.AddBlock(nifTriShape.release());
 		rootNode->childRefs.AddBlockRef(shapeID);
 	}
 
@@ -2328,13 +2343,13 @@ void NifFile::TriangulateShape(NiShape* shape) {
 			if (!tris.empty()) {
 				auto [triShapeS, triShape] = make_unique<NiTriShape>();
 				*static_cast<NiTriBasedGeom*>(triShape) = *static_cast<NiTriBasedGeom*>(shape);
-				hdr.ReplaceBlock(GetBlockID(shape), std::move(triShapeS));
+				hdr.ReplaceBlock(GetBlockID(shape), triShapeS.release());
 
 				auto [triShapeDataS, triShapeData] = make_unique<NiTriShapeData>();
 				*static_cast<NiTriBasedGeomData*>(triShapeData) = *static_cast<NiTriBasedGeomData*>(
 					stripsData);
 				triShapeData->SetTriangles(tris);
-				hdr.ReplaceBlock(GetBlockID(stripsData), std::move(triShapeDataS));
+				hdr.ReplaceBlock(GetBlockID(stripsData), triShapeDataS.release());
 				triShape->SetGeomData(triShapeData);
 			}
 		}
@@ -3031,7 +3046,7 @@ void NifFile::SetShapePartitions(NiShape* shape,
 		bsdSkinInst = newBsdSkinInst.get();
 
 		*static_cast<NiSkinInstance*>(bsdSkinInst) = *static_cast<NiSkinInstance*>(skinInst);
-		hdr.ReplaceBlock(GetBlockID(skinInst), std::move(newBsdSkinInst));
+		hdr.ReplaceBlock(GetBlockID(skinInst), newBsdSkinInst.release());
 	}
 
 	if (bsdSkinInst) {
@@ -4037,12 +4052,12 @@ NiAlphaProperty* NifFile::GetAlphaProperty(NiShape* shape) const {
 	return nullptr;
 }
 
-uint32_t NifFile::AssignAlphaProperty(NiShape* shape, std::unique_ptr<NiAlphaProperty> alphaProp) {
+uint32_t NifFile::AssignAlphaProperty(NiShape* shape, NiAlphaProperty* alphaProp) {
 	RemoveAlphaProperty(shape);
 
 	NiShader* shader = GetShader(shape);
 	if (shader) {
-		int alphaRef = hdr.AddBlock(std::move(alphaProp));
+		int alphaRef = hdr.AddBlock(alphaProp);
 		if (shader->HasType<BSShaderPPLightingProperty>() || shader->HasType<NiMaterialProperty>())
 			shape->propertyRefs.AddBlockRef(alphaRef);
 		else if (shape->AlphaPropertyRef())
@@ -4533,20 +4548,21 @@ void NifFile::UpdatePartitionFlags(NiShape* shape) {
 void NifFile::CreateSkinning(NiShape* shape) {
 	if (shape->HasType<NiTriShape>() || shape->HasType<NiTriStrips>()) {
 		if (shape->SkinInstanceRef()->IsEmpty()) {
-			int skinDataID = hdr.AddBlock(std::make_unique<NiSkinData>());
-			int partID = hdr.AddBlock(std::make_unique<NiSkinPartition>());
+			int skinDataID = hdr.AddBlock(new NiSkinData);
+			int partID = hdr.AddBlock(new NiSkinPartition);
 
 			NiSkinInstance* skinInst;
 			int skinInstID;
 
 			if (hdr.GetVersion().File() == NiFileVersion::V20_2_0_7) {
 				auto [nifDismemberInstS, nifDismemberInst] = make_unique<BSDismemberSkinInstance>();
-				skinInstID = hdr.AddBlock(std::move(nifDismemberInstS));
+			int dismemberID = hdr.AddBlock(nifDismemberInstS.release());
 				skinInst = nifDismemberInst;
 			}
 			else {
-				auto [nifSkinInstS, nifSkinInst] = make_unique<NiSkinInstance>();
-				skinInstID = hdr.AddBlock(std::move(nifSkinInstS));
+				auto nifSkinInstS = new NiSkinInstance;
+				auto nifSkinInst = new NiSkinInstance;
+				skinInstID = hdr.AddBlock(nifSkinInstS);
 				skinInst = nifSkinInst;
 			}
 
@@ -4563,11 +4579,11 @@ void NifFile::CreateSkinning(NiShape* shape) {
 		if (shape->SkinInstanceRef()->IsEmpty()) {
 			int skinInstID = 0;
 			if (hdr.GetVersion().Stream() == 100) {
-				int skinDataID = hdr.AddBlock(std::make_unique<NiSkinData>());
+				int skinDataID = hdr.AddBlock(new NiSkinData);
 
 				auto nifSkinPartition = std::make_unique<NiSkinPartition>();
 				nifSkinPartition->bMappedIndices = false;
-				int partID = hdr.AddBlock(std::move(nifSkinPartition));
+				int partID = hdr.AddBlock(nifSkinPartition.release());
 
 				auto nifDismemberInst = std::make_unique<BSDismemberSkinInstance>();
 
@@ -4575,7 +4591,7 @@ void NifFile::CreateSkinning(NiShape* shape) {
 				nifDismemberInst->skinPartitionRef.index = partID;
 				nifDismemberInst->targetRef.index = GetBlockID(GetRootNode());
 
-				skinInstID = hdr.AddBlock(std::move(nifDismemberInst));
+				skinInstID = hdr.AddBlock(nifDismemberInst.release());
 
 				shape->SkinInstanceRef()->index = skinInstID;
 				shape->SetSkinned(true);
@@ -4585,9 +4601,9 @@ void NifFile::CreateSkinning(NiShape* shape) {
 			}
 			else {
 				auto [newSkinInstS, newSkinInst] = make_unique<BSSkinInstance>();
-				skinInstID = hdr.AddBlock(std::move(newSkinInstS));
+				skinInstID = hdr.AddBlock(newSkinInstS.release());
 
-				int boneDataRef = hdr.AddBlock(std::make_unique<BSSkinBoneData>());
+				int boneDataRef = hdr.AddBlock(new BSSkinBoneData);
 
 				newSkinInst->targetRef.index = GetBlockID(GetRootNode());
 				newSkinInst->dataRef.index = boneDataRef;

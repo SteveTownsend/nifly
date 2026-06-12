@@ -438,8 +438,8 @@ class NiCloneable : public Base {
 public:
 	virtual ~NiCloneable() override = default;
 
-	std::unique_ptr<Derived> Clone() const {
-		return std::unique_ptr<Derived>(static_cast<Derived*>(this->Clone_impl()));
+	Derived* Clone() const {
+		return static_cast<Derived*>(this->Clone_impl());
 	}
 
 private:
@@ -474,8 +474,8 @@ class NiCloneableStreamable : public Base {
 public:
 	virtual ~NiCloneableStreamable() override = default;
 
-	std::unique_ptr<Derived> Clone() const {
-		return std::unique_ptr<Derived>(static_cast<Derived*>(this->Clone_impl()));
+	Derived* Clone() const {
+		return static_cast<Derived*>(this->Clone_impl());
 	}
 
 	void Get(NiIStream& stream) override {
@@ -592,14 +592,20 @@ using NiPtr = NiRef;
 // Helper to reduce duplication
 template<typename ValueType, typename SizeType>
 class NiVectorBase {
+public:
+	typedef std::vector<ValueType> Container;
+
 private:
-	std::vector<ValueType> vec;
+	Container vec;
 
 protected:
 	static constexpr size_t NumSize = sizeof(SizeType);
 	static constexpr SizeType MaxIndex = std::numeric_limits<SizeType>::max() - 1;
 
 public:
+	typedef typename Container::iterator iterator;
+	typedef typename Container::const_iterator const_iterator;
+
 	NiVectorBase() = default;
 	NiVectorBase(const SizeType size) { resize(size); }
 
@@ -608,27 +614,27 @@ public:
 
 	void clear() { vec.clear(); }
 
-	auto begin() { return vec.begin(); }
-	auto cbegin() const { return vec.begin(); }
+	iterator begin() { return vec.begin(); }
+	const_iterator cbegin() const { return vec.begin(); }
 
-	auto end() { return vec.end(); }
-	auto cend() const { return vec.end(); }
+	iterator end() { return vec.end(); }
+	const_iterator cend() const { return vec.end(); }
 
 	void resize(SizeType size) { vec.resize(size); }
 
 	void push_back(ValueType& val) { vec.push_back(val); }
-	auto insert(SizeType index, ValueType& val) { vec.insert(vec.begin() + index, val); }
+	void insert(SizeType index, ValueType& val) { vec.insert(vec.begin() + index, val); }
 
-	auto& operator[](SizeType i) { return vec[i]; }
+	ValueType& operator[](SizeType i) { return vec[i]; }
 
 	ValueType* data() { return vec.data(); }
 	const ValueType* data() const { return vec.data(); }
 
-	auto erase(SizeType i) { return vec.erase(vec.begin() + i); }
+	iterator erase(SizeType i) { return vec.erase(vec.begin() + i); }
 
 	// for SWIG, to avoid duplicating std_vector.i to handle iteration
-	std::vector<ValueType> items() const { return vec; }
-	void SetItems(const std::vector<ValueType>& newItems) { vec = newItems; }
+	Container items() const { return vec; }
+	void SetItems(const Container& newItems) { vec = newItems; }
 };
 
 template<typename ValueType, typename SizeType = uint32_t>
@@ -1052,8 +1058,8 @@ public:
 	virtual void GetChildIndices(std::vector<uint32_t>&) {}
 	virtual void GetPtrs(std::set<NiPtr*>&) {}
 
-	std::unique_ptr<NiObject> Clone() const {
-		return std::unique_ptr<NiObject>(static_cast<NiObject*>(this->Clone_impl()));
+	NiObject* Clone() const {
+		return static_cast<NiObject*>(this->Clone_impl());
 	}
 
 	template<typename T>
@@ -1238,11 +1244,11 @@ public:
 	void DeleteBlockByType(const std::string& blockTypeStr, const bool orphanedOnly = false);
 
 	// Adds a new block to the file. Pointer is moved to the file.
-	uint32_t AddBlock(std::unique_ptr<NiObject> newBlock);
+	uint32_t AddBlock(NiObject* newBlock);
 
 	// Replaces an existing block in the file. Pointer is moved to the file.
 	// This is not the same as deleting and adding a new block.
-	uint32_t ReplaceBlock(const uint32_t oldBlockId, std::unique_ptr<NiObject> newBlock);
+	uint32_t ReplaceBlock(const uint32_t oldBlockId, NiObject* newBlock);
 
 	void SetBlockOrder(std::vector<uint32_t>& newOrder);
 

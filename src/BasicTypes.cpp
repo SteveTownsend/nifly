@@ -278,19 +278,21 @@ void NiHeader::DeleteBlockByType(const std::string& blockTypeStr, const bool orp
 			DeleteBlock(indices[j]);
 }
 
-uint32_t NiHeader::AddBlock(std::unique_ptr<NiObject> newBlock) {
-	uint16_t btID = AddOrFindBlockTypeId(newBlock->GetBlockName());
+uint32_t NiHeader::AddBlock(NiObject* newBlock) {
+	std::unique_ptr<NiObject> ownedBlock(newBlock);
+	uint16_t btID = AddOrFindBlockTypeId(ownedBlock->GetBlockName());
 	blockTypeIndices.push_back(btID);
 
 	if (version.File() >= V20_2_0_5)
 		blockSizes.push_back(0);
 
-	blocks->emplace_back(std::move(newBlock));
+	blocks->emplace_back(std::move(ownedBlock));
 	numBlocks++;
 	return numBlocks - 1;
 }
 
-uint32_t NiHeader::ReplaceBlock(const uint32_t oldBlockId, std::unique_ptr<NiObject> newBlock) {
+uint32_t NiHeader::ReplaceBlock(const uint32_t oldBlockId, NiObject* newBlock) {
+	std::unique_ptr<NiObject> ownedBlock(newBlock);
 	if (oldBlockId == NIF_NPOS)
 		return NIF_NPOS;
 
@@ -308,13 +310,13 @@ uint32_t NiHeader::ReplaceBlock(const uint32_t oldBlockId, std::unique_ptr<NiObj
 				blockTypeIndice--;
 	}
 
-	uint16_t btID = AddOrFindBlockTypeId(newBlock->GetBlockName());
+	uint16_t btID = AddOrFindBlockTypeId(ownedBlock->GetBlockName());
 	blockTypeIndices[oldBlockId] = btID;
 
 	if (version.File() >= V20_2_0_5)
 		blockSizes[oldBlockId] = 0;
 
-	(*blocks)[oldBlockId].swap(newBlock);
+	(*blocks)[oldBlockId].reset(ownedBlock.release());
 	return oldBlockId;
 }
 
