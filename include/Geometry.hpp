@@ -631,7 +631,7 @@ struct BSGeometryMesh {
 	void Sync(NiStreamReversible& stream);
 };
 
-class BSGeometry : public NiCloneableStreamable<BSGeometry, NiShape> {
+STREAMABLECLASSDEF(BSGeometry, NiShape) {
 protected:
 	BoundingSphere bounds;
 	float boundMinMax[6]{};

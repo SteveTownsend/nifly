@@ -259,7 +259,7 @@ struct BSWeakReference {
 	void Sync(NiStreamReversible& stream);
 };
 
-class BSWeakReferenceNode : public NiCloneableStreamable<BSWeakReferenceNode, NiNode> {
+STREAMABLECLASSDEF(BSWeakReferenceNode, NiNode) {
 public:
 	uint32_t numWeakRefs = 0;
 	std::vector<BSWeakReference> weakRefs;
@@ -274,7 +274,7 @@ public:
 	void Sync(NiStreamReversible& stream);
 };
 
-class BSFaceGenNiNode : public NiCloneableStreamable<BSFaceGenNiNode, NiNode> {
+STREAMABLECLASSDEF(BSFaceGenNiNode, NiNode) {
 public:
 	uint16_t unkShort = 0;
 

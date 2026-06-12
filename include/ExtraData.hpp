@@ -376,8 +376,7 @@ public:
 	void Sync(NiStreamReversible& stream);
 };
 
-class BSDistantObjectExtraData
-	: public NiCloneableStreamable<BSDistantObjectExtraData, NiExtraData> {
+STREAMABLECLASSDEF(BSDistantObjectExtraData, NiExtraData) {
 public:
 	uint32_t distantObjectFlags = 0;
 
@@ -437,7 +436,7 @@ public:
 	bool FromHKX(const std::filesystem::path& fileName);
 };
 
-class BSCollisionQueryProxyExtraData : public NiCloneableStreamable<BSCollisionQueryProxyExtraData, BSExtraData> {
+STREAMABLECLASSDEF(BSCollisionQueryProxyExtraData, BSExtraData) {
 public:
 	NiVector<char> data;
 
@@ -447,7 +446,7 @@ public:
 	void Sync(NiStreamReversible& stream);
 };
 
-class SkinAttach : public NiCloneableStreamable<SkinAttach, NiExtraData> {
+STREAMABLECLASSDEF(SkinAttach, NiExtraData) {
 public:
 	NiStringVector<> bones;
 
@@ -462,7 +461,7 @@ struct BoneTranslation {
 	Vector3 trans;
 };
 
-class BoneTranslations : public NiCloneableStreamable<BoneTranslations, NiExtraData> {
+CLONEABLECLASSDEF(BoneTranslations, NiExtraData) {
 public:
 	uint32_t numTranslations = 0;
 	std::vector<BoneTranslation> translations;
