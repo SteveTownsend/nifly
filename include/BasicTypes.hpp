@@ -815,8 +815,9 @@ public:
 	}
 };
 
-template<typename SizeType = uint32_t>
-class NiStringRefVector : public NiVectorBase<NiStringRef, SizeType> {
+class NiStringRefVector : public NiVectorBase<NiStringRef, uint32_t> {
+public:
+	using SizeType = uint32_t;
 private:
 	using Base = NiVectorBase<NiStringRef, SizeType>;
 	using Base::MaxIndex;
