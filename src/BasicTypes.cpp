@@ -160,6 +160,8 @@ void NiStringRef::Write(NiOStream& stream) {
 	}
 }
 
+NiVersion& NiStreamBase::GetVersion() { return header->GetVersion(); }
+const NiVersion& NiStreamBase::GetVersion() const { return header->GetVersion(); }
 
 void NiHeader::Clear() {
 	numBlockTypes = 0;
