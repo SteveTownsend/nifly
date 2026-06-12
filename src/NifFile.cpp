@@ -157,15 +157,7 @@ size_t NifFile::GetTriangleLimit() const {
 }
 
 void NifFile::Create(const NiVersion& version) {
-	Clear();
-	hdr.SetVersion(version);
-	hdr.SetBlockReference(&blocks);
-
-	auto rootNode = std::make_unique<NiNode>();
-	rootNode->name.get() = "Scene Root";
-	hdr.AddBlock(std::move(rootNode));
-
-	isValid = true;
+	CreateNamed<NiNode>(version, DefaultRootNodeName);
 }
 
 void NifFile::Clear() {

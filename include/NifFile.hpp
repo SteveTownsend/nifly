@@ -139,6 +139,19 @@ public:
 	// Creates a new file with a root NiNode using the specified version.
 	void Create(const NiVersion& version);
 
+	template <typename NODETYPE>
+	void CreateNamed(const NiVersion& version, const std::string& rootName) {
+		Clear();
+		hdr.SetVersion(version);
+		hdr.SetBlockReference(&blocks);
+
+		auto rootNode = std::make_unique<NODETYPE>();
+		rootNode->name.get() = rootName.c_str();
+		hdr.AddBlock(std::move(rootNode));
+
+		isValid = true;
+	}
+
 	// Deletes all blocks, header strings and resets the valid status.
 	void Clear();
 
