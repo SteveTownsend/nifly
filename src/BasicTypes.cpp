@@ -54,38 +54,36 @@ void NiVersion::SetFile(NiFileVersion fileVer) {
 
 
 void NiString::Read(NiIStream& stream, const int szSize) {
-	std::array<char, 2048 + 1> buf{};
+	std::unique_ptr<char[]> buf;
 
 	if (szSize == 1) {
 		uint8_t smSize = 0;
 		stream >> smSize;
-		stream.read(buf.data(), smSize);
+
+		buf = std::make_unique<char[]>(smSize + 1);
+		stream.read(buf.get(), smSize);
 		buf[smSize] = 0;
 	}
 	else if (szSize == 2) {
 		uint16_t medSize = 0;
 		stream >> medSize;
-		if (medSize < buf.size())
-			stream.read(buf.data(), medSize);
-		else
-			medSize = static_cast<uint16_t>(buf.size() - 1);
 
+		buf = std::make_unique<char[]>(medSize + 1);
+		stream.read(buf.get(), medSize);
 		buf[medSize] = 0;
 	}
 	else if (szSize == 4) {
 		uint32_t bigSize = 0;
 		stream >> bigSize;
-		if (bigSize < buf.size())
-			stream.read(buf.data(), bigSize);
-		else
-			bigSize = static_cast<uint32_t>(buf.size() - 1);
 
+		buf = std::make_unique<char[]>(bigSize + 1);
+		stream.read(buf.get(), bigSize);
 		buf[bigSize] = 0;
 	}
 	else
 		return;
 
-	str = buf.data();
+	str = buf.get();
 }
 
 void NiString::Write(NiOStream& stream, const int szSize) {
@@ -138,8 +136,12 @@ void NiStringRef::Read(NiIStream& stream) {
 		buf[sz] = 0;
 		str = buf.data();
 	}
-	else
+	else {
 		stream >> index;
+		
+		if (index != NIF_NPOS && index > NIF_STRING_INDEX_LIMIT)
+			throw std::length_error("Read: String index is too high.");
+	}
 }
 
 void NiStringRef::Write(NiOStream& stream) {
@@ -150,8 +152,12 @@ void NiStringRef::Write(NiOStream& stream) {
 		stream << sz;
 		stream.write(str.c_str(), str.length());
 	}
-	else
+	else {
+		if (index != NIF_NPOS && index > NIF_STRING_INDEX_LIMIT)
+			throw std::length_error("Write: String index is too high.");
+
 		stream << index;
+	}
 }
 
 
@@ -201,9 +207,9 @@ void NiHeader::SetExportInfo(const std::string& exportInfo) {
 	exportStrings[2] = &exportInfo3;
 
 	auto it = exportStrings.begin();
-	for (size_t i = 0; i < exportInfo.length() && it < exportStrings.end(); i += 256, ++it) {
-		if (i + 256 <= exportInfo.length())
-			(*it)->get() = exportInfo.substr(i, 256);
+	for (size_t i = 0; i < exportInfo.length() && it < exportStrings.end(); i += 254, ++it) {
+		if (i + 254 <= exportInfo.length())
+			(*it)->get() = exportInfo.substr(i, 254);
 		else
 			(*it)->get() = exportInfo.substr(i, exportInfo.length() - i);
 	}
@@ -272,21 +278,19 @@ void NiHeader::DeleteBlockByType(const std::string& blockTypeStr, const bool orp
 			DeleteBlock(indices[j]);
 }
 
-uint32_t NiHeader::AddBlock(NiObject* newBlock) {
-	std::unique_ptr<NiObject> ownedBlock(newBlock);
-	uint16_t btID = AddOrFindBlockTypeId(ownedBlock->GetBlockName());
+uint32_t NiHeader::AddBlock(std::unique_ptr<NiObject> newBlock) {
+	uint16_t btID = AddOrFindBlockTypeId(newBlock->GetBlockName());
 	blockTypeIndices.push_back(btID);
 
 	if (version.File() >= V20_2_0_5)
 		blockSizes.push_back(0);
 
-	blocks->emplace_back(std::move(ownedBlock));
+	blocks->emplace_back(std::move(newBlock));
 	numBlocks++;
 	return numBlocks - 1;
 }
 
-uint32_t NiHeader::ReplaceBlock(const uint32_t oldBlockId, NiObject* newBlock) {
-	std::unique_ptr<NiObject> ownedBlock(newBlock);
+uint32_t NiHeader::ReplaceBlock(const uint32_t oldBlockId, std::unique_ptr<NiObject> newBlock) {
 	if (oldBlockId == NIF_NPOS)
 		return NIF_NPOS;
 
@@ -304,13 +308,13 @@ uint32_t NiHeader::ReplaceBlock(const uint32_t oldBlockId, NiObject* newBlock) {
 				blockTypeIndice--;
 	}
 
-	uint16_t btID = AddOrFindBlockTypeId(ownedBlock->GetBlockName());
+	uint16_t btID = AddOrFindBlockTypeId(newBlock->GetBlockName());
 	blockTypeIndices[oldBlockId] = btID;
 
 	if (version.File() >= V20_2_0_5)
 		blockSizes[oldBlockId] = 0;
 
-	(*blocks)[oldBlockId].reset(ownedBlock.release());
+	(*blocks)[oldBlockId].swap(newBlock);
 	return oldBlockId;
 }
 
@@ -343,7 +347,7 @@ void NiHeader::SetBlockOrder(std::vector<uint32_t>& newOrder) {
 		b->GetChildRefs(refs);
 
 		for (auto& r : refs) {
-			if (!r->IsEmpty())
+			if (!r->IsEmpty() && r->index < newOrder.size())
 				r->index = newOrder[r->index];
 		}
 
@@ -351,7 +355,7 @@ void NiHeader::SetBlockOrder(std::vector<uint32_t>& newOrder) {
 		b->GetPtrs(ptrs);
 
 		for (auto& p : ptrs) {
-			if (!p->IsEmpty())
+			if (!p->IsEmpty() && p->index < newOrder.size())
 				p->index = newOrder[p->index];
 		}
 	}
@@ -688,7 +692,6 @@ void NiHeader::Get(NiIStream& stream) {
 	}
 
 	valid = true;
-	stream.GetVersion() = version;
 }
 
 void NiHeader::Put(NiOStream& stream) {

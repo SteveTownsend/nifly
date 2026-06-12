@@ -375,6 +375,11 @@ void BSDistantObjectLargeRefExtraData::Sync(NiStreamReversible& stream) {
 }
 
 
+void BSDistantObjectExtraData::Sync(NiStreamReversible& stream) {
+	stream.Sync(distantObjectFlags);
+}
+
+
 void BSConnectPoint::Sync(NiStreamReversible& stream) {
 	root.Sync(stream, 4);
 	variableName.Sync(stream, 4);
@@ -405,7 +410,7 @@ void BSClothExtraData::Sync(NiStreamReversible& stream) {
 }
 
 
-bool BSClothExtraData::ToHKX(const std::string& fileName) {
+bool BSClothExtraData::ToHKX(const std::filesystem::path& fileName) {
 	std::ofstream file(fileName, std::ios_base::binary);
 	if (!file)
 		return false;
@@ -414,7 +419,7 @@ bool BSClothExtraData::ToHKX(const std::string& fileName) {
 	return true;
 }
 
-bool BSClothExtraData::FromHKX(const std::string& fileName) {
+bool BSClothExtraData::FromHKX(const std::filesystem::path& fileName) {
 	std::ifstream file(fileName, std::ios::binary | std::ios::ate);
 	if (!file)
 		return false;
@@ -425,4 +430,24 @@ bool BSClothExtraData::FromHKX(const std::string& fileName) {
 	data.resize(numBytes);
 	file.read(data.data(), numBytes);
 	return true;
+}
+
+
+void BSCollisionQueryProxyExtraData::Sync(NiStreamReversible& stream) {
+	data.SyncByteArray(stream);
+}
+
+
+void SkinAttach::Sync(NiStreamReversible& stream) {
+	bones.Sync(stream);
+}
+
+
+void BoneTranslations::Sync(NiStreamReversible& stream) {
+	stream.Sync(numTranslations);
+	translations.resize(numTranslations);
+	for (uint32_t i = 0; i < numTranslations; i++) {
+		translations[i].bone.Sync(stream, 4);
+		stream.Sync(translations[i].trans);
+	}
 }

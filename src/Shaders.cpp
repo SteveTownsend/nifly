@@ -9,7 +9,8 @@ See the included GPLv3 LICENSE file
 using namespace nifly;
 
 void NiShadeProperty::Sync(NiStreamReversible& stream) {
-	stream.Sync(flags);
+	if (stream.GetVersion().User() <= 11)
+		stream.Sync(shadingFlags);
 }
 
 
@@ -197,37 +198,27 @@ void NiWireframeProperty::Sync(NiStreamReversible& stream) {
 
 void NiZBufferProperty::Sync(NiStreamReversible& stream) {
 	stream.Sync(flags);
+
+	if (stream.GetVersion().File() >= V4_1_0_12 && stream.GetVersion().File() <= V20_0_0_5)
+		stream.Sync(testFunction);
 }
 
 
 void BSShaderProperty::Sync(NiStreamReversible& stream) {
-	if (stream.GetVersion().User() == 12 && stream.GetVersion().Stream() == 155 && name.GetIndex() != NIF_NPOS)
-		return;
+	if (stream.GetVersion().User() == 12 && stream.GetVersion().Stream() > 139) {
+		std::string nameStr = stream.GetHeader().GetStringById(name.GetIndex());
+		if (!nameStr.empty())
+			return;
+	}
 
 	if (stream.GetVersion().User() <= 11) {
-		stream.Sync(shaderFlags);
 		stream.Sync(shaderType);
 		stream.Sync(shaderFlags1);
 		stream.Sync(shaderFlags2);
 		stream.Sync(environmentMapScale);
 	}
 	else {
-		if (stream.GetVersion().Stream() == 155) {
-			stream.Sync(bslspShaderType);
-			stream.Sync(numSF1);
-			stream.Sync(numSF2);
-
-			SF1.resize(numSF1);
-			SF2.resize(numSF2);
-
-			for (uint32_t i = 0; i < numSF1; i++)
-				stream.Sync(SF1[i]);
-
-			for (uint32_t i = 0; i < numSF2; i++)
-				stream.Sync(SF2[i]);
-		}
-
-		if (stream.GetVersion().Stream() < 155) {
+		if (stream.GetVersion().Stream() < 132) {
 			stream.Sync(shaderFlags1);
 			stream.Sync(shaderFlags2);
 			stream.Sync(uvOffset);
@@ -265,6 +256,13 @@ void BSShaderProperty::SetSkinned(const bool enable) {
 
 bool BSShaderProperty::IsDoubleSided() const {
 	return (shaderFlags2 & (1 << 4)) != 0;
+}
+
+void BSShaderProperty::SetDoubleSided(const bool enable) {
+	if (enable)
+		shaderFlags2 |= 1 << 4;
+	else
+		shaderFlags2 &= ~(1 << 4);
 }
 
 bool BSShaderProperty::IsModelSpace() const {
@@ -331,6 +329,13 @@ bool BSShaderProperty::HasGreyscaleColor() const {
 
 bool BSShaderProperty::HasEnvironmentMapping() const {
 	return (shaderFlags1 & (1 << 7)) != 0;
+}
+
+void BSShaderProperty::SetEnvironmentMapping(const bool enable) {
+	if (enable)
+		shaderFlags1 |= 1 << 7;
+	else
+		shaderFlags1 &= ~(1 << 7);
 }
 
 float BSShaderProperty::GetEnvironmentMapScale() const {
@@ -402,8 +407,50 @@ BSLightingShaderProperty::BSLightingShaderProperty(NiVersion& version)
 }
 
 void BSLightingShaderProperty::Sync(NiStreamReversible& stream) {
-	if (stream.GetVersion().User() == 12 && stream.GetVersion().Stream() == 155 && name.GetIndex() != NIF_NPOS)
-		return;
+	if (stream.GetVersion().User() == 12 && stream.GetVersion().Stream() > 139) {
+		std::string nameStr = stream.GetHeader().GetStringById(name.GetIndex());
+		if (!nameStr.empty())
+			return;
+	}
+
+	if (stream.GetVersion().Stream() > 139) {
+		stream.Sync(bslspShaderType);
+
+		// Adjust shader type to old value internally due to removed Height/Parallax enum value (3)
+		if (stream.GetMode() == NiStreamReversible::Mode::Reading) {
+			if (bslspShaderType > 3)
+				bslspShaderType += 1;
+		}
+		else {
+			if (bslspShaderType >= 3)
+				bslspShaderType -= 1;
+		}
+	}
+
+	if (stream.GetVersion().Stream() >= 132) {
+		stream.Sync(numSF1);
+		SF1.resize(numSF1);
+	}
+
+	if (stream.GetVersion().Stream() >= 152) {
+		stream.Sync(numSF2);
+		SF2.resize(numSF2);
+	}
+
+	if (stream.GetVersion().Stream() >= 132) {
+		for (uint32_t i = 0; i < numSF1; i++)
+			stream.Sync(SF1[i]);
+	}
+
+	if (stream.GetVersion().Stream() >= 152) {
+		for (uint32_t i = 0; i < numSF2; i++)
+			stream.Sync(SF2[i]);
+	}
+
+	if (stream.GetVersion().Stream() >= 132) {
+		stream.Sync(uvOffset);
+		stream.Sync(uvScale);
+	}
 
 	textureSetRef.Sync(stream);
 
@@ -412,6 +459,9 @@ void BSLightingShaderProperty::Sync(NiStreamReversible& stream) {
 
 	if (stream.GetVersion().User() == 12 && stream.GetVersion().Stream() >= 130)
 		rootMaterialName.Sync(stream);
+
+	if (stream.GetVersion().User() == 12 && stream.GetVersion().Stream() >= 172)
+		stream.Sync(unkFloat);
 
 	stream.Sync(textureClampMode);
 	stream.Sync(alpha);
@@ -425,13 +475,15 @@ void BSLightingShaderProperty::Sync(NiStreamReversible& stream) {
 		stream.Sync(rimlightPower);
 	}
 
-	if (stream.GetVersion().User() == 12 && stream.GetVersion().Stream() >= 130) {
+	if (stream.GetVersion().IsFO4()) {
 		stream.Sync(subsurfaceRolloff);
 		stream.Sync(rimlightPower2);
 
-		if (rimlightPower2 == NiFloatMax)
+		if (rimlightPower2 >= NiFloatMax && rimlightPower2 < NiFloatInf)
 			stream.Sync(backlightPower);
+	}
 
+	if (stream.GetVersion().User() == 12 && stream.GetVersion().Stream() >= 130) {
 		stream.Sync(grayscaleToPaletteScale);
 		stream.Sync(fresnelPower);
 		stream.Sync(wetnessSpecScale);
@@ -444,63 +496,63 @@ void BSLightingShaderProperty::Sync(NiStreamReversible& stream) {
 		stream.Sync(wetnessFresnelPower);
 		stream.Sync(wetnessMetalness);
 
-		if (stream.GetVersion().Stream() == 155) {
+		if (stream.GetVersion().Stream() > 130)
 			stream.Sync(wetnessUnknown1);
+		if (stream.GetVersion().Stream() >= 155)
 			stream.Sync(wetnessUnknown2);
-		}
 	}
 
-	if (stream.GetVersion().User() == 12 && stream.GetVersion().Stream() == 155) {
+	if (stream.GetVersion().User() == 12 && stream.GetVersion().Stream() > 139) {
 		stream.Sync(lumEmittance);
 		stream.Sync(exposureOffset);
 		stream.Sync(finalExposureMin);
 		stream.Sync(finalExposureMax);
-		stream.Sync(doTranslucency);
-		stream.Sync(subsurfaceColor);
-		stream.Sync(transmissiveScale);
-		stream.Sync(turbulence);
-		stream.Sync(thickObject);
-		stream.Sync(mixAlbedo);
-		stream.Sync(hasTextureArrays);
 
-		if (hasTextureArrays) {
-			stream.Sync(numTextureArrays);
+		if (stream.GetVersion().Stream() < 172) {
+			stream.Sync(doTranslucency);
+			if (doTranslucency) {
+				stream.Sync(subsurfaceColor);
+				stream.Sync(transmissiveScale);
+				stream.Sync(turbulence);
+				stream.Sync(thickObject);
+				stream.Sync(mixAlbedo);
+			}
 
-			textureArrays.resize(numTextureArrays);
+			stream.Sync(hasTextureArrays);
 
-			for (uint32_t i = 0; i < numTextureArrays; i++)
-				textureArrays[i].Sync(stream);
+			if (hasTextureArrays) {
+				stream.Sync(numTextureArrays);
+
+				textureArrays.resize(numTextureArrays);
+
+				for (uint32_t i = 0; i < numTextureArrays; i++)
+					textureArrays[i].Sync(stream);
+			}
+		}
+		else {
+			stream.Sync(unkFloat1);
+			stream.Sync(unkFloat2);
+			stream.Sync(unkShort1);
 		}
 	}
 
 	switch (bslspShaderType) {
 		case 1:
-			if (stream.GetVersion().User() == 12 && stream.GetVersion().Stream() <= 130)
-				stream.Sync(environmentMapScale);
+			stream.Sync(environmentMapScale);
 
-			if (stream.GetVersion().User() == 12 && stream.GetVersion().Stream() == 130) {
+			if (stream.GetVersion().IsFO4()) {
 				stream.Sync(useSSR);
 				stream.Sync(wetnessUseSSR);
 			}
-
-			if (stream.GetVersion().User() == 12 && stream.GetVersion().Stream() == 155) {
-				stream.Sync(skinTintColor);
-				stream.Sync(skinTintAlpha);
-			}
 			break;
 		case 5:
-			if (stream.GetVersion().User() == 12 && stream.GetVersion().Stream() <= 130)
-				stream.Sync(skinTintColor);
+			stream.Sync(skinTintColor);
 
-			if (stream.GetVersion().User() == 12 && stream.GetVersion().Stream() == 130)
+			if (stream.GetVersion().User() == 12 && stream.GetVersion().Stream() >= 130)
 				stream.Sync(skinTintAlpha);
-
-			if (stream.GetVersion().User() == 12 && stream.GetVersion().Stream() == 155)
-				stream.Sync(hairTintColor);
 			break;
 		case 6:
-			if (stream.GetVersion().User() == 12 && stream.GetVersion().Stream() <= 130)
-				stream.Sync(hairTintColor);
+			stream.Sync(hairTintColor);
 			break;
 		case 7:
 			stream.Sync(maxPasses);
@@ -651,10 +703,42 @@ void BSLightingShaderProperty::SetWetMaterialName(const std::string& matName) {
 
 
 void BSEffectShaderProperty::Sync(NiStreamReversible& stream) {
-	if (stream.GetVersion().User() == 12 && stream.GetVersion().Stream() == 155 && name.GetIndex() != NIF_NPOS)
-		return;
+	if (stream.GetVersion().User() == 12 && stream.GetVersion().Stream() > 130) {
+		std::string nameStr = stream.GetHeader().GetStringById(name.GetIndex());
+		if (!nameStr.empty())
+			return;
+	}
+
+	if (stream.GetVersion().Stream() >= 132) {
+		stream.Sync(numSF1);
+		SF1.resize(numSF1);
+	}
+
+	if (stream.GetVersion().Stream() >= 152) {
+		stream.Sync(numSF2);
+		SF2.resize(numSF2);
+	}
+
+	if (stream.GetVersion().Stream() >= 132) {
+		for (uint32_t i = 0; i < numSF1; i++)
+			stream.Sync(SF1[i]);
+	}
+
+	if (stream.GetVersion().Stream() >= 152) {
+		for (uint32_t i = 0; i < numSF2; i++)
+			stream.Sync(SF2[i]);
+	}
+
+	if (stream.GetVersion().Stream() >= 132) {
+		stream.Sync(uvOffset);
+		stream.Sync(uvScale);
+	}
 
 	sourceTexture.Sync(stream, 4);
+
+	if (stream.GetVersion().Stream() >= 172)
+		stream.Sync(unkFloat);
+
 	stream.Sync(textureClampMode);
 
 	stream.Sync(falloffStartAngle);
@@ -662,7 +746,7 @@ void BSEffectShaderProperty::Sync(NiStreamReversible& stream) {
 	stream.Sync(falloffStartOpacity);
 	stream.Sync(falloffStopOpacity);
 
-	if (stream.GetVersion().User() == 12 && stream.GetVersion().Stream() == 155)
+	if (stream.GetVersion().User() == 12 && stream.GetVersion().Stream() > 139 && stream.GetVersion().Stream() < 172)
 		stream.Sync(refractionPower);
 
 	stream.Sync(baseColor);
@@ -677,7 +761,7 @@ void BSEffectShaderProperty::Sync(NiStreamReversible& stream) {
 		stream.Sync(envMapScale);
 	}
 
-	if (stream.GetVersion().User() == 12 && stream.GetVersion().Stream() == 155) {
+	if (stream.GetVersion().User() == 12 && stream.GetVersion().Stream() > 139) {
 		reflectanceTexture.Sync(stream, 4);
 		lightingTexture.Sync(stream, 4);
 		stream.Sync(emittanceColor);
@@ -687,6 +771,16 @@ void BSEffectShaderProperty::Sync(NiStreamReversible& stream) {
 		stream.Sync(exposureOffset);
 		stream.Sync(finalExposureMin);
 		stream.Sync(finalExposureMax);
+	}
+
+	if (stream.GetVersion().User() == 12 && stream.GetVersion().Stream() >= 172) {
+		for (uint8_t& b : unkBytes)
+			stream.Sync(b);
+
+		for (float& f : unkFloats)
+			stream.Sync(f);
+
+		stream.Sync(unkByte1);
 	}
 }
 
@@ -712,16 +806,72 @@ void BSEffectShaderProperty::SetEmissiveMultiple(const float emissive) {
 
 
 void BSWaterShaderProperty::Sync(NiStreamReversible& stream) {
-	if (stream.GetVersion().User() == 12 && stream.GetVersion().Stream() == 155 && name.GetIndex() != NIF_NPOS)
-		return;
+	if (stream.GetVersion().User() == 12 && stream.GetVersion().Stream() > 139) {
+		std::string nameStr = stream.GetHeader().GetStringById(name.GetIndex());
+		if (!nameStr.empty())
+			return;
+	}
+
+	if (stream.GetVersion().Stream() >= 132) {
+		stream.Sync(numSF1);
+		SF1.resize(numSF1);
+	}
+
+	if (stream.GetVersion().Stream() >= 152) {
+		stream.Sync(numSF2);
+		SF2.resize(numSF2);
+	}
+
+	if (stream.GetVersion().Stream() >= 132) {
+		for (uint32_t i = 0; i < numSF1; i++)
+			stream.Sync(SF1[i]);
+	}
+
+	if (stream.GetVersion().Stream() >= 152) {
+		for (uint32_t i = 0; i < numSF2; i++)
+			stream.Sync(SF2[i]);
+	}
+
+	if (stream.GetVersion().Stream() >= 132) {
+		stream.Sync(uvOffset);
+		stream.Sync(uvScale);
+	}
 
 	stream.Sync(waterFlags);
 }
 
 
 void BSSkyShaderProperty::Sync(NiStreamReversible& stream) {
-	if (stream.GetVersion().User() == 12 && stream.GetVersion().Stream() == 155 && name.GetIndex() != NIF_NPOS)
-		return;
+	if (stream.GetVersion().User() == 12 && stream.GetVersion().Stream() > 139) {
+		std::string nameStr = stream.GetHeader().GetStringById(name.GetIndex());
+		if (!nameStr.empty())
+			return;
+	}
+
+	if (stream.GetVersion().Stream() >= 132) {
+		stream.Sync(numSF1);
+		SF1.resize(numSF1);
+	}
+
+	if (stream.GetVersion().Stream() >= 152) {
+		stream.Sync(numSF2);
+		SF2.resize(numSF2);
+	}
+
+	if (stream.GetVersion().Stream() >= 132) {
+		for (uint32_t i = 0; i < numSF1; i++)
+			stream.Sync(SF1[i]);
+	}
+
+	if (stream.GetVersion().Stream() >= 152) {
+		for (uint32_t i = 0; i < numSF2; i++)
+			stream.Sync(SF2[i]);
+	}
+
+	if (stream.GetVersion().Stream() >= 132) {
+		stream.Sync(uvOffset);
+		stream.Sync(uvScale);
+	}
 
 	baseTexture.Sync(stream, 4);
 	stream.Sync(skyFlags);

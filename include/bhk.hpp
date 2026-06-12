@@ -648,6 +648,22 @@ public:
 	const char* GetBlockName() override { return BlockName; }
 };
 
+STREAMABLECLASSDEF(bhkCylinderShape, bhkConvexShape) {
+private:
+	uint8_t unused1[8]{};
+	uint8_t unused2[12]{};
+
+public:
+	Vector4 vertexA;
+	Vector4 vertexB;
+	float cylinderRadius = 0.0f;
+
+	static constexpr const char* BlockName = "bhkCylinderShape";
+	const char* GetBlockName() override { return BlockName; }
+
+	void Sync(NiStreamReversible& stream);
+};
+
 STREAMABLECLASSDEF(bhkTransformShape, bhkShape) {
 private:
 	uint64_t padding = 0;
@@ -863,7 +879,7 @@ public:
 	HavokFilter collisionFilter;
 	int unkInt1 = 0;
 	uint8_t broadPhaseType = 0;
-	std::array<uint8_t, 3> unkBytes{};
+	uint8_t unkBytes[3]{};
 	hkWorldObjCInfoProperty prop;
 
 	void Sync(NiStreamReversible& stream);
@@ -918,12 +934,12 @@ public:
 	uint16_t processContactCallbackDelay = 0xFFFF;
 	uint32_t unkInt1 = 0;
 	HavokFilter collisionFilterCopy;
-	std::array<uint16_t, 6> unkShorts2{};
+	uint16_t unkShorts2[6]{};
 	Vector4 translation;
 	QuaternionXYZW rotation;
 	Vector4 linearVelocity;
 	Vector4 angularVelocity;
-	std::array<float, 12> inertiaMatrix{};
+	float inertiaMatrix[12]{};
 	Vector4 center;
 	float mass = 1.0f;
 	float linearDamping = 0.1f;
@@ -1168,7 +1184,7 @@ public:
 
 STREAMABLECLASSDEF(bhkPoseArray, NiObject) {
 public:
-	NiStringRefVector bones;
+	NiStringRefVector<> bones;
 	NiSyncVector<BonePose> poses;
 
 	static constexpr const char* BlockName = "bhkPoseArray";

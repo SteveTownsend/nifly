@@ -30,6 +30,8 @@ struct OptOptions {
 	bool headParts = false;		// Use mesh formats required for head parts (use ONLY for head parts!)
 	bool removeParallax = true; // Remove parallax shader flags and texture paths
 	bool calcBounds = true;		// Recalculate bounding spheres for unskinned meshes
+	bool fixBSXFlags = true;	// Fix BSX flag values based on file contents
+	bool fixShaderFlags = true;	// Fix shader flag values based on file contents
 };
 
 // OptimizeFor function result
@@ -98,10 +100,8 @@ public:
 	void CopyFrom(const NifFile& other);
 
 	int Load(const std::filesystem::path& fileName, const NifLoadOptions& options = NifLoadOptions());
-	int Load(const std::string& fileName, const NifLoadOptions& options = NifLoadOptions());
 	int Load(std::istream& file, const NifLoadOptions& options = NifLoadOptions());
 	int Save(const std::filesystem::path& fileName, const NifSaveOptions& options = NifSaveOptions());
-	int Save(const std::string& fileName, const NifSaveOptions& options = NifSaveOptions());
 	int Save(std::ostream& file, const NifSaveOptions& options = NifSaveOptions());
 
 	// Update geometry bounds and delete unreferenced blocks
@@ -139,19 +139,6 @@ public:
 	// Creates a new file with a root NiNode using the specified version.
 	void Create(const NiVersion& version);
 
-	template <typename NODETYPE>
-	void CreateNamed(const NiVersion& version, const std::string& rootName) {
-		Clear();
-		hdr.SetVersion(version);
-		hdr.SetBlockReference(&blocks);
-
-		auto rootNode = std::make_unique<NODETYPE>();
-		rootNode->name.get() = rootName.c_str();
-		hdr.AddBlock(rootNode.release());
-
-		isValid = true;
-	}
-
 	// Deletes all blocks, header strings and resets the valid status.
 	void Clear();
 
@@ -178,7 +165,7 @@ public:
 	std::string GetNodeName(const uint32_t blockID) const;
 	void SetNodeName(const uint32_t blockID, const std::string& newName);
 
-	uint32_t AssignExtraData(NiAVObject* target, NiExtraData* extraData);
+	uint32_t AssignExtraData(NiAVObject* target, std::unique_ptr<NiExtraData> extraData);
 	void AddStringExtraDataToNode(const int blockID, const std::string& edName, const std::string& edValue);
 
 	// Explicitly sets the order of shapes to a new one.
@@ -217,6 +204,12 @@ public:
 	// Order is based on child references, block types and version.
 	void PrettySortBlocks();
 
+	// Fixes the flag values in "BSXFlags" blocks based on file contents.
+	void FixBSXFlags();
+
+	// Fixes the flag values in shader blocks based on file contents.
+	void FixShaderFlags();
+
 	// Deletes all unreferenced (loose) blocks of the given type.
 	// Use default template type "NiObject" for all block types.
 	// Does nothing when there are unknown block types to prevent data loss.
@@ -240,7 +233,15 @@ public:
 	// Block type needs a "name" member (like blocks based on NiObjectNET).
 	// Returns block in the correct type or nullptr.
 	template<class T = NiObject>
-	T* FindBlockByName(const std::string& name) const;
+	T* FindBlockByName(const std::string& name) const {
+		for (auto& block : blocks) {
+			auto namedBlock = dynamic_cast<T*>(block.get());
+			if (namedBlock && namedBlock->name == name)
+				return namedBlock;
+		}
+
+		return nullptr;
+	}
 
 	// Returns index of a block in the blocks array or NIF_NPOS
 	uint32_t GetBlockID(NiObject* block) const;
@@ -269,6 +270,18 @@ public:
 	// Returns NiTexturingProperty pointer of the shape (or nullptr)
 	// Used by OB.
 	NiTexturingProperty* GetTexturingProperty(NiShape* shape) const;
+
+	// Returns a mutable gometry data structure for manipulating geometry data. If
+	// geometry data cannot be found, nullptr is returned
+	NiGeometryData* GetGeometryData(NiShape* shape) const;
+
+	// Returns a list of mesh names useful for locating external mesh data eg data/geometry/<meshname>
+	std::vector<std::reference_wrapper<std::string>> GetExternalGeometryPathRefs(NiShape* shape) const;
+
+	// Loads external shape data from the provided istream, storing data in the provided shape
+	bool LoadExternalShapeData(NiShape* shape, std::istream& stream, uint8_t shapeIndex);
+	// Saves external shape data from the provided shape, storing data in the provided ostream
+	bool SaveExternalShapeData(NiShape* shape, std::ostream& outfile, uint8_t shapeIndex);
 
 	// Returns references to all texture path strings of the shape
 	std::vector<std::reference_wrapper<std::string>> GetTexturePathRefs(NiShape* shape) const;
@@ -502,6 +515,7 @@ public:
 	const std::vector<Vector2>* GetUvsForShape(NiShape* shape);
 	// Gets pointer to vertex colors of the shape (can be nullptr or empty)
 	const std::vector<Color4>* GetColorsForShape(const std::string& shapeName);
+	const std::vector<Color4>* GetColorsForShape(NiShape* shape);
 	// Gets pointer to vertex tangents of the shape (can be nullptr or empty)
 	const std::vector<Vector3>* GetTangentsForShape(NiShape* shape);
 	// Gets pointer to vertex bitangents of the shape (can be nullptr or empty)
@@ -601,7 +615,7 @@ public:
 
 	// Assigns a new alpha property block to the shape/shader.
 	// Removes any existing ones. Pointer is moved to the file.
-	uint32_t AssignAlphaProperty(NiShape* shape, NiAlphaProperty* alphaProp);
+	uint32_t AssignAlphaProperty(NiShape* shape, std::unique_ptr<NiAlphaProperty> alphaProp);
 
 	// Removes any existing alpha properties for the shape/shader.
 	void RemoveAlphaProperty(NiShape* shape);

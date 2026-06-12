@@ -152,6 +152,52 @@ public:
 	void GetChildIndices(std::vector<uint32_t>& indices) override;
 };
 
+struct BSResourceID {
+    uint32_t fileHash = 0;
+    char extension[4];
+    uint32_t dirHash = 0;
+};
+
+#pragma pack(push, 1)
+struct BSDistantObjectUnknown {
+	uint64_t unknown1 = 0;
+	uint32_t unknown2 = 0;
+};
+#pragma pack(pop)
+
+struct BSDistantObjectInstance {
+	BSResourceID resourceID;
+	NiVector<BSDistantObjectUnknown> unknownData;
+	NiVector<Matrix4> transforms;
+
+	void Sync(NiStreamReversible& stream) {
+		stream.Sync(resourceID);
+		unknownData.Sync(stream);
+		transforms.Sync(stream);
+	}
+};
+
+struct BSShaderTextureArray {
+	uint8_t unknownByte = 1;
+	NiSyncVector<BSTextureArray> textureArrays;
+
+	void Sync(NiStreamReversible& stream) {
+		stream.Sync(unknownByte);
+		textureArrays.Sync(stream);
+	}
+};
+
+STREAMABLECLASSDEF(BSDistantObjectInstancedNode, BSMultiBoundNode) {
+public:
+	NiSyncVector<BSDistantObjectInstance> instances;
+	BSShaderTextureArray textureArrays[3]{};
+
+	static constexpr const char* BlockName = "BSDistantObjectInstancedNode";
+	const char* GetBlockName() override { return BlockName; }
+
+	void Sync(NiStreamReversible& stream);
+};
+
 STREAMABLECLASSDEF(BSRangeNode, NiNode) {
 public:
 	uint8_t min = 0;
@@ -180,6 +226,62 @@ CLONEABLECLASSDEF(BSDamageStage, BSBlastNode) {
 public:
 	static constexpr const char* BlockName = "BSDamageStage";
 	const char* GetBlockName() override { return BlockName; }
+};
+
+struct UnkMaterialStruct {
+	uint32_t biomeFormID = 0;
+	uint32_t dirHash = 0;
+	uint32_t fileHash = 0;
+	std::string mat; // mat\0
+
+	void Sync(NiStreamReversible& stream);
+};
+
+struct BSWaterReferenceStruct {
+    Matrix4 transform;
+    BSResourceID resourceID;
+    uint32_t unkInt1 = 0;
+    NiString material;
+
+	void Sync(NiStreamReversible& stream);
+};
+
+struct BSWeakReference {
+	uint32_t formID = 0;
+	BSResourceID resourceID;
+
+	uint32_t numTransforms = 0;
+	std::vector<Matrix4> transforms;
+
+	uint32_t numMaterials;
+	std::vector<UnkMaterialStruct> unkMaterials;
+
+	void Sync(NiStreamReversible& stream);
+};
+
+class BSWeakReferenceNode : public NiCloneableStreamable<BSWeakReferenceNode, NiNode> {
+public:
+	uint32_t numWeakRefs = 0;
+	std::vector<BSWeakReference> weakRefs;
+
+	uint32_t unkInt1 = 0;
+	uint32_t numWaterRefs = 0;
+	std::vector<BSWaterReferenceStruct> waterRefs;
+
+	static constexpr const char* BlockName = "BSWeakReferenceNode";
+	const char* GetBlockName() override { return BlockName; }
+
+	void Sync(NiStreamReversible& stream);
+};
+
+class BSFaceGenNiNode : public NiCloneableStreamable<BSFaceGenNiNode, NiNode> {
+public:
+	uint16_t unkShort = 0;
+
+	static constexpr const char* BlockName = "BSFaceGenNiNode";
+	const char* GetBlockName() override { return BlockName; }
+
+	void Sync(NiStreamReversible& stream);
 };
 
 enum BillboardMode : uint16_t {

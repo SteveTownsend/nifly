@@ -11,10 +11,15 @@ See the included GPLv3 LICENSE file
 #include "VertexData.hpp"
 #include "half.hpp"
 
+#include <filesystem>
+
 namespace nifly {
 STREAMABLECLASSDEF(NiExtraData, NiObject) {
 public:
 	NiStringRef name;
+
+	static constexpr const char* BlockName = "NiExtraData";
+	const char* GetBlockName() override { return BlockName; }
 
 	void Sync(NiStreamReversible& stream);
 	void GetStringRefs(std::vector<NiStringRef*>& refs) override;
@@ -119,6 +124,19 @@ public:
 	const char* GetBlockName() override { return BlockName; }
 
 	void Sync(NiStreamReversible& stream);
+};
+
+enum BSXFlagsEnum : uint32_t {
+	BSX_ANIMATED = 1 << 0,
+	BSX_HAVOK = 1 << 1,
+	BSX_RAGDOLL = 1 << 2,
+	BSX_COMPLEX = 1 << 3,
+	BSX_ADDON = 1 << 4,
+	BSX_EDITOR_MARKER = 1 << 5,
+	BSX_DYNAMIC = 1 << 6,
+	BSX_ARTICULATED = 1 << 7,
+	BSX_NEEDS_TRANSFORM_UPDATES = 1 << 8,
+	BSX_EXTERNAL_EMITTANCE = 1 << 9
 };
 
 CLONEABLECLASSDEF(BSXFlags, NiIntegerExtraData) {
@@ -358,6 +376,17 @@ public:
 	void Sync(NiStreamReversible& stream);
 };
 
+class BSDistantObjectExtraData
+	: public NiCloneableStreamable<BSDistantObjectExtraData, NiExtraData> {
+public:
+	uint32_t distantObjectFlags = 0;
+
+	static constexpr const char* BlockName = "BSDistantObjectExtraData";
+	const char* GetBlockName() override { return BlockName; }
+
+	void Sync(NiStreamReversible& stream);
+};
+
 class BSConnectPoint {
 public:
 	NiString root;
@@ -404,7 +433,43 @@ public:
 
 	void Sync(NiStreamReversible& stream);
 
-	bool ToHKX(const std::string& fileName);
-	bool FromHKX(const std::string& fileName);
+	bool ToHKX(const std::filesystem::path& fileName);
+	bool FromHKX(const std::filesystem::path& fileName);
+};
+
+class BSCollisionQueryProxyExtraData : public NiCloneableStreamable<BSCollisionQueryProxyExtraData, BSExtraData> {
+public:
+	NiVector<char> data;
+
+	static constexpr const char* BlockName = "BSCollisionQueryProxyExtraData";
+	const char* GetBlockName() override { return BlockName; }
+
+	void Sync(NiStreamReversible& stream);
+};
+
+class SkinAttach : public NiCloneableStreamable<SkinAttach, NiExtraData> {
+public:
+	NiStringVector<> bones;
+
+	static constexpr const char* BlockName = "SkinAttach";
+	const char* GetBlockName() override { return BlockName; }
+
+	void Sync(NiStreamReversible& stream);
+};
+
+struct BoneTranslation {
+	NiString bone;
+	Vector3 trans;
+};
+
+class BoneTranslations : public NiCloneableStreamable<BoneTranslations, NiExtraData> {
+public:
+	uint32_t numTranslations = 0;
+	std::vector<BoneTranslation> translations;
+
+	static constexpr const char* BlockName = "BoneTranslations";
+	const char* GetBlockName() override { return BlockName; }
+
+	void Sync(NiStreamReversible& stream);
 };
 } // namespace nifly

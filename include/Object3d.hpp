@@ -124,11 +124,10 @@ struct Vector3 {
 #ifndef SWIG
 	constexpr
 #endif
-	Vector3(const Vector3& rhs) {
-		x = rhs.x;
-		y = rhs.y;
-		z = rhs.z;
-	}
+	Vector3(const Vector3& rhs)
+		: x(rhs.x)
+		, y(rhs.y)
+		, z(rhs.z) {}
 
 	constexpr float& operator[](int ind) { return ind ? (ind == 2 ? z : y) : x; }
 	constexpr float operator[](int ind) const { return ind ? (ind == 2 ? z : y) : x; }
@@ -546,7 +545,7 @@ public:
 
 	constexpr const Vector3& operator[](int index) const { return rows[index]; }
 
-	constexpr bool operator==(const Matrix3& other) {
+	constexpr bool operator==(const Matrix3& other) const {
 		return rows[0] == other[0] && rows[1] == other[1] && rows[2] == other[2];
 	}
 
@@ -774,9 +773,9 @@ public:
 	constexpr float& operator[](int index) { return m[index]; }
 	constexpr float operator[](int index) const { return m[index]; }
 
-	// std::equal does onot work with SWIG
-	bool operator==(const Matrix4& other) { return m == other.m; }
-	// bool operator==(const Matrix4& other) { return (std::equal(m, m + sizeof m / sizeof *m, other.m)); }
+	// std::equal does not work with SWIG
+	bool operator==(const Matrix4& other) const { return m == other.m; }
+	// bool operator==(const Matrix4& other) const { return (std::equal(m, m + sizeof m / sizeof *m, other.m)); }
 
 	bool IsIdentity() { return *this == Matrix4(); }
 
@@ -1084,12 +1083,6 @@ struct QuaternionXYZW {
 		, w(w_) {}
 };
 
-
-struct QuatTransform {
-	Vector3 translation;
-	Quaternion rotation;
-	float scale = 1.0f;
-};
 
 struct MatTransform {
 	/* On MatTransform and coordinate-system (CS) transformations:

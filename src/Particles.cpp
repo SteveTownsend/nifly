@@ -14,32 +14,65 @@ NiParticlesData::NiParticlesData() {
 
 void NiParticlesData::Sync(NiStreamReversible& stream) {
 	stream.Sync(hasRadii);
+	if (hasRadii && stream.GetVersion().File() != V20_2_0_7) {
+		radii.resize(numVertices);
+		for (float& r : radii)
+			stream.Sync(r);
+	}
+
 	stream.Sync(numActive);
+
 	stream.Sync(hasSizes);
+	if (hasSizes && stream.GetVersion().File() != V20_2_0_7) {
+		sizes.resize(numVertices);
+		for (float& s : sizes)
+			stream.Sync(s);
+	}
+
 	stream.Sync(hasRotations);
+	if (hasRotations && stream.GetVersion().File() != V20_2_0_7) {
+		rotations.resize(numVertices);
+		for (Quaternion& q : rotations)
+			stream.Sync(q);
+	}
+
 	stream.Sync(hasRotationAngles);
+	if (hasRotationAngles && stream.GetVersion().File() != V20_2_0_7) {
+		rotationAngles.resize(numVertices);
+		for (float& a : rotationAngles)
+			stream.Sync(a);
+	}
+
 	stream.Sync(hasRotationAxes);
-	stream.Sync(hasTextureIndices);
-
-	uint32_t sz = 0;
-
-	if (stream.GetVersion().User() >= 12) {
-		sz = subtexOffsets.SyncSize(stream);
-	}
-	else {
-		uint8_t numOffsets = subtexOffsets.size() > 255 ? 255 : static_cast<uint8_t>(subtexOffsets.size());
-		stream.Sync(numOffsets);
-		sz = numOffsets;
+	if (hasRotationAxes && stream.GetVersion().File() != V20_2_0_7) {
+		rotationAxes.resize(numVertices);
+		for (Vector3& a : rotationAxes)
+			stream.Sync(a);
 	}
 
-	subtexOffsets.SyncData(stream, sz);
+	if (stream.GetVersion().File() == V20_2_0_7) {
+		stream.Sync(hasTextureIndices);
 
-	if (stream.GetVersion().User() >= 12) {
-		stream.Sync(aspectRatio);
-		stream.Sync(aspectFlags);
-		stream.Sync(speedToAspectAspect2);
-		stream.Sync(speedToAspectSpeed1);
-		stream.Sync(speedToAspectSpeed2);
+		uint32_t sz = 0;
+
+		if (stream.GetVersion().User() >= 12) {
+			sz = subtexOffsets.SyncSize(stream);
+		}
+		else {
+			uint8_t numOffsets = subtexOffsets.size() > 255 ? 255 : static_cast<uint8_t>(subtexOffsets.size());
+			stream.Sync(numOffsets);
+			sz = numOffsets;
+		}
+
+		subtexOffsets.SyncData(stream, sz);
+
+		if (stream.GetVersion().User() >= 12) {
+			stream.Sync(aspectRatio);
+			stream.Sync(aspectFlags);
+			stream.Sync(speedToAspectAspect2);
+			stream.Sync(speedToAspectSpeed1);
+			stream.Sync(speedToAspectSpeed2);
+		}
 	}
 }
 
@@ -62,10 +95,35 @@ void NiParticleMeshesData::GetChildIndices(std::vector<uint32_t>& indices) {
 
 
 void NiPSysData::Sync(NiStreamReversible& stream) {
-	if (stream.GetVersion().Stream() == 155)
+	if (stream.GetVersion().File() != V20_2_0_7) {
+		particleInfo.resize(numVertices);
+		for (auto& pi : particleInfo)
+			pi.Sync(stream);
+	}
+
+	if (stream.GetVersion().Stream() > 130)
 		stream.Sync(unknownVector);
 
-	stream.Sync(hasRotationSpeeds);
+	if (stream.GetVersion().File() == V20_2_4_7)
+		stream.Sync(unknownQQSpeedByte1);
+
+	if (stream.GetVersion().File() >= V20_0_0_2) {
+		stream.Sync(hasRotationSpeeds);
+
+		if (hasRotationSpeeds && stream.GetVersion().File() != V20_2_0_7) {
+			rotationSpeeds.resize(numVertices);
+			for (auto& rs : rotationSpeeds)
+				stream.Sync(rs);
+		}
+	}
+
+	if (stream.GetVersion().File() != V20_2_0_7) {
+		stream.Sync(numAddedParticles);
+		stream.Sync(addedParticlesBase);
+	}
+
+	if (stream.GetVersion().File() == V20_2_4_7)
+		stream.Sync(unknownQQSpeedByte2);
 }
 
 
@@ -101,6 +159,40 @@ void BSStripPSysData::Sync(NiStreamReversible& stream) {
 void NiPSysEmitterCtlrData::Sync(NiStreamReversible& stream) {
 	floatKeys.Sync(stream);
 	visibilityKeys.Sync(stream);
+}
+
+
+void NiPSysEmitterCtlr::Sync(NiStreamReversible& stream) {
+	if (stream.GetVersion().File() < V10_1_0_104)
+		dataRef.Sync(stream);
+	else
+		visInterpolatorRef.Sync(stream);
+}
+
+void NiPSysEmitterCtlr::GetChildRefs(std::set<NiRef*>& refs) {
+	NiPSysModifierCtlr::GetChildRefs(refs);
+
+	refs.insert(&dataRef);
+	refs.insert(&visInterpolatorRef);
+}
+
+void NiPSysEmitterCtlr::GetChildIndices(std::vector<uint32_t>& indices) {
+	NiPSysModifierCtlr::GetChildIndices(indices);
+
+	indices.push_back(dataRef.index);
+	indices.push_back(visInterpolatorRef.index);
+}
+
+
+void BSPSysMultiTargetEmitterCtlr::Sync(NiStreamReversible& stream) {
+	stream.Sync(maxEmitters);
+	masterParticleSystemRef.Sync(stream);
+}
+
+void BSPSysMultiTargetEmitterCtlr::GetPtrs(std::set<NiPtr*>& ptrs) {
+	NiPSysEmitterCtlr::GetPtrs(ptrs);
+
+	ptrs.insert(&masterParticleSystemRef);
 }
 
 
@@ -179,7 +271,7 @@ void BSPSysSimpleColorModifier::Sync(NiStreamReversible& stream) {
 	stream.Sync(color2);
 	stream.Sync(color3);
 
-	if (stream.GetVersion().Stream() == 155) {
+	if (stream.GetVersion().Stream() > 130) {
 		for (uint16_t& unknownShort : unknownShorts)
 			stream.Sync(unknownShort);
 	}
@@ -190,7 +282,7 @@ void NiPSysRotationModifier::Sync(NiStreamReversible& stream) {
 	stream.Sync(initialSpeed);
 	stream.Sync(initialSpeedVariation);
 
-	if (stream.GetVersion().Stream() == 155) {
+	if (stream.GetVersion().Stream() > 130) {
 		stream.Sync(unknownVector);
 		stream.Sync(unknownByte);
 	}
@@ -216,7 +308,9 @@ void NiPSysGravityModifier::Sync(NiStreamReversible& stream) {
 	stream.Sync(forceType);
 	stream.Sync(turbulence);
 	stream.Sync(turbulenceScale);
-	stream.Sync(worldAligned);
+
+	if (stream.GetVersion().Stream() > 16)
+		stream.Sync(worldAligned);
 }
 
 void NiPSysGravityModifier::GetPtrs(std::set<NiPtr*>& ptrs) {
@@ -460,7 +554,7 @@ void NiParticleSystem::Sync(NiStreamReversible& stream) {
 	if (stream.GetVersion().Stream() >= 100) {
 		stream.Sync(bounds);
 
-		if (stream.GetVersion().Stream() == 155)
+		if (stream.GetVersion().Stream() > 139)
 			for (float& i : boundMinMax)
 				stream.Sync(i);
 
@@ -481,11 +575,23 @@ void NiParticleSystem::Sync(NiStreamReversible& stream) {
 		psysDataRef.index = dataRef.index;
 		skinInstanceRef.Sync(stream);
 
-		uint32_t numMaterials = materialNames.Sync(stream);
-		materialExtraData.SyncData(stream, numMaterials);
+		if (stream.GetVersion().File() >= V10_0_1_0 && stream.GetVersion().File() <= V20_1_0_3) {
+			stream.Sync(hasShader);
+			if (hasShader) {
+				shaderName.Sync(stream);
+				stream.Sync(shaderExtraData);
+			}
+		}
 
-		stream.Sync(activeMaterial);
-		stream.Sync(defaultMatNeedsUpdate);
+		if (stream.GetVersion().File() >= V20_2_0_5) {
+			uint32_t numMaterials = materialNames.Sync(stream);
+			materialExtraData.SyncData(stream, numMaterials);
+
+			stream.Sync(activeMaterial);
+		}
+
+		if (stream.GetVersion().File() >= V20_2_0_7)
+			stream.Sync(defaultMatNeedsUpdate);
 
 		if (stream.GetVersion().User() >= 12) {
 			shaderPropertyRef.Sync(stream);
@@ -511,6 +617,8 @@ void NiParticleSystem::Sync(NiStreamReversible& stream) {
 
 void NiParticleSystem::GetStringRefs(std::vector<NiStringRef*>& refs) {
 	NiAVObject::GetStringRefs(refs);
+
+	refs.emplace_back(&shaderName);
 
 	for (auto& mn : materialNames)
 		refs.emplace_back(&mn);

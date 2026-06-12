@@ -11,6 +11,22 @@ See the included GPLv3 LICENSE file
 #include "Keys.hpp"
 
 namespace nifly {
+struct QuatTransform {
+	Vector3 translation;
+	Quaternion rotation;
+	float scale = 1.0f;
+	bool trsValid[3]{};
+
+	void Sync(NiStreamReversible& stream) {
+		stream.Sync(translation);
+		stream.Sync(rotation);
+		stream.Sync(scale);
+
+		if (stream.GetVersion().File() < V10_1_0_110)
+			stream.Sync(trsValid);
+	}
+};
+
 STREAMABLECLASSDEF(NiKeyframeData, NiObject) {
 public:
 	NiKeyType rotationType = NO_INTERP;
@@ -171,6 +187,7 @@ public:
 	NiBlockRef<NiInterpolator> interpolatorRef;
 	float weight = 0.0f;
 	float normalizedWeight = 0.0f;
+	uint32_t priorityInt = 0;
 	uint8_t priority = 0;
 	float easeSpinner = 0.0f;
 
@@ -180,20 +197,30 @@ public:
 STREAMABLECLASSDEF(NiBlendInterpolator, NiInterpolator) {
 public:
 	InterpBlendFlags flags = INTERP_BLEND_MANAGER_CONTROLLED;
-	uint8_t arraySize = 0;
+	uint16_t arraySize = 0;
+	uint16_t arrayGrowBy = 0;
 	float weightThreshold = 0.0f;
 
-	uint8_t interpCount = 0;
+	uint16_t interpCount = 0;
 	uint8_t singleIndex = NiByteMax;
+	uint16_t singleIndexShort = NiUShortMax;
 	char highPriority = NiCharMin;
+	int highPriorityInt = NiIntMin;
 	char nextHighPriority = NiCharMin;
+	int nextHighPriorityInt = NiIntMin;
 	float singleTime = NiFloatMin;
 	float highWeightsSum = NiFloatMin;
 	float nextHighWeightsSum = NiFloatMin;
 	float highEaseSpinner = NiFloatMin;
 	std::vector<InterpBlendItem> interpItems;
 
+	bool managerControlled = false;
+	bool onlyUseHighestWeight = false;
+	NiBlockRef<NiInterpolator> singleInterpolatorRef;
+
 	void Sync(NiStreamReversible& stream);
+	void GetChildRefs(std::set<NiRef*>& refs) override;
+	void GetChildIndices(std::vector<uint32_t>& indices) override;
 };
 
 STREAMABLECLASSDEF(NiBlendBoolInterpolator, NiBlendInterpolator) {
@@ -228,8 +255,12 @@ public:
 
 STREAMABLECLASSDEF(NiBlendTransformInterpolator, NiBlendInterpolator) {
 public:
+	QuatTransform value;
+
 	static constexpr const char* BlockName = "NiBlendTransformInterpolator";
 	const char* GetBlockName() override { return BlockName; }
+
+	void Sync(NiStreamReversible& stream);
 };
 
 class NiKeyBasedInterpolator : public NiInterpolator {};
@@ -558,10 +589,16 @@ public:
 
 struct Morph {
 	NiStringRef frameName;
+	float legacyWeight = 0.0f;
 	std::vector<Vector3> vectors;
 
 	void Sync(NiStreamReversible& stream, uint32_t numVerts) {
-		frameName.Sync(stream);
+		if (stream.GetVersion().File() >= V10_1_0_106)
+			frameName.Sync(stream);
+
+		if (stream.GetVersion().File() >= V10_1_0_104 && stream.GetVersion().File() < V20_1_0_3 && stream.GetVersion().Stream() < 10)
+			stream.Sync(legacyWeight);
+
 		vectors.resize(numVerts);
 		for (uint32_t i = 0; i < numVerts; i++)
 			stream.Sync(vectors[i]);
@@ -589,7 +626,12 @@ public:
 	void SetMorphs(const uint32_t numVerts, const std::vector<Morph>& m);
 };
 
-CLONEABLECLASSDEF(NiInterpController, NiTimeController) {};
+STREAMABLECLASSDEF(NiInterpController, NiTimeController) {
+public:
+	bool managerControlled = false;
+
+	void Sync(NiStreamReversible& stream);
+};
 
 class MorphWeight {
 public:
@@ -612,7 +654,10 @@ public:
 	GeomMorpherFlags morpherFlags = GM_UPDATE_NORMALS_DISABLED;
 	NiBlockRef<NiMorphData> dataRef;
 	bool alwaysUpdate = false;
+	NiBlockRefArray<NiInterpolator> interpolatorRefs;
 	NiSyncVector<MorphWeight> interpWeights;
+
+	NiVector<uint32_t> unknownInts;
 
 	static constexpr const char* BlockName = "NiGeomMorpherController";
 	const char* GetBlockName() override { return BlockName; }
@@ -777,10 +822,16 @@ public:
 	const char* GetBlockName() override { return BlockName; }
 };
 
-CLONEABLECLASSDEF(NiKeyframeController, NiSingleInterpController) {
+STREAMABLECLASSDEF(NiKeyframeController, NiSingleInterpController) {
 public:
+	NiBlockRef<NiKeyframeData> dataRef;
+
 	static constexpr const char* BlockName = "NiKeyframeController";
 	const char* GetBlockName() override { return BlockName; }
+
+	void Sync(NiStreamReversible& stream);
+	void GetChildRefs(std::set<NiRef*>& refs) override;
+	void GetChildIndices(std::vector<uint32_t>& indices) override;
 };
 
 CLONEABLECLASSDEF(NiTransformController, NiKeyframeController) {
@@ -990,30 +1041,10 @@ public:
 	const char* GetBlockName() override { return BlockName; }
 };
 
-STREAMABLECLASSDEF(NiPSysEmitterCtlr, NiPSysModifierCtlr) {
+CLONEABLECLASSDEF(NiPSysRotDampeningCtlr, NiPSysModifierFloatCtlr) {
 public:
-	NiBlockRef<NiInterpolator> visInterpolatorRef;
-
-	static constexpr const char* BlockName = "NiPSysEmitterCtlr";
+	static constexpr const char* BlockName = "NiPSysRotDampeningCtlr";
 	const char* GetBlockName() override { return BlockName; }
-
-	void Sync(NiStreamReversible& stream);
-	void GetChildRefs(std::set<NiRef*>& refs) override;
-	void GetChildIndices(std::vector<uint32_t>& indices) override;
-};
-
-class BSMasterParticleSystem;
-
-STREAMABLECLASSDEF(BSPSysMultiTargetEmitterCtlr, NiPSysEmitterCtlr) {
-public:
-	uint16_t maxEmitters = 0;
-	NiBlockPtr<BSMasterParticleSystem> masterParticleSystemRef;
-
-	static constexpr const char* BlockName = "BSPSysMultiTargetEmitterCtlr";
-	const char* GetBlockName() override { return BlockName; }
-
-	void Sync(NiStreamReversible& stream);
-	void GetPtrs(std::set<NiPtr*>& ptrs) override;
 };
 
 STREAMABLECLASSDEF(NiStringPalette, NiObject) {
@@ -1029,9 +1060,21 @@ public:
 
 class ControllerLink {
 public:
+	NiString targetName;
 	NiBlockRef<NiInterpolator> interpolatorRef;
 	NiBlockRef<NiTimeController> controllerRef;
+
+	NiBlockRef<NiBlendInterpolator> blendInterpolatorRef;
+	uint16_t blendIndex = 0;
+
 	uint8_t priority = 0;
+
+	NiBlockRef<NiStringPalette> stringPaletteRef;
+	uint32_t nodeNameOffset = 0;
+	uint32_t propertyTypeOffset = 0;
+	uint32_t controllerTypeOffset = 0;
+	uint32_t controllerIDOffset = 0;
+	uint32_t interpIDOffset = 0;
 
 	NiStringRef nodeName;
 	NiStringRef propType;
@@ -1040,15 +1083,40 @@ public:
 	NiStringRef interpID;
 
 	void Sync(NiStreamReversible& stream) {
-		interpolatorRef.Sync(stream);
-		controllerRef.Sync(stream);
-		stream.Sync(priority);
+		if (stream.GetVersion().File() < V10_1_0_104)
+			targetName.Sync(stream, 4);
 
-		nodeName.Sync(stream);
-		propType.Sync(stream);
-		ctrlType.Sync(stream);
-		ctrlID.Sync(stream);
-		interpID.Sync(stream);
+		if (stream.GetVersion().File() >= V10_1_0_106)
+			interpolatorRef.Sync(stream);
+
+		if (stream.GetVersion().File() <= V20_5_0_0)
+			controllerRef.Sync(stream);
+
+		if (stream.GetVersion().File() >= V10_1_0_104 && stream.GetVersion().File() <= V10_1_0_110) {
+			blendInterpolatorRef.Sync(stream);
+			stream.Sync(blendIndex);
+		}
+
+		if (stream.GetVersion().File() >= V10_1_0_106 && stream.GetVersion().Stream() > 0)
+			stream.Sync(priority);
+
+		if ((stream.GetVersion().File() >= V10_1_0_104 && stream.GetVersion().File() < V10_1_0_114) ||
+			(stream.GetVersion().File() >= V20_1_0_1)) {
+			nodeName.Sync(stream);
+			propType.Sync(stream);
+			ctrlType.Sync(stream);
+			ctrlID.Sync(stream);
+			interpID.Sync(stream);
+		}
+
+		if (stream.GetVersion().File() >= V10_2_0_0 && stream.GetVersion().File() < V20_1_0_1) {
+			stringPaletteRef.Sync(stream);
+			stream.Sync(nodeNameOffset);
+			stream.Sync(propertyTypeOffset);
+			stream.Sync(controllerTypeOffset);
+			stream.Sync(controllerIDOffset);
+			stream.Sync(interpIDOffset);
+		}
 	}
 
 	void GetStringRefs(std::vector<NiStringRef*>& refs) {
@@ -1062,11 +1130,15 @@ public:
 	void GetChildRefs(std::set<NiRef*>& refs) {
 		refs.insert(&interpolatorRef);
 		refs.insert(&controllerRef);
+		refs.insert(&blendInterpolatorRef);
+		refs.insert(&stringPaletteRef);
 	}
 
 	void GetChildIndices(std::vector<uint32_t>& indices) {
 		indices.push_back(interpolatorRef.index);
 		indices.push_back(controllerRef.index);
+		indices.push_back(blendInterpolatorRef.index);
+		indices.push_back(stringPaletteRef.index);
 	}
 };
 
@@ -1124,10 +1196,14 @@ public:
 	NiBlockRef<NiTextKeyExtraData> textKeyRef;
 	CycleType cycleType = CYCLE_LOOP;
 	float frequency = 0.0f;
+	float phase = 0.0f;
 	float startTime = 0.0f;
 	float stopTime = 0.0f;
+	bool playBackwards = false;
 	NiBlockPtr<NiControllerManager> managerRef;
 	NiStringRef accumRootName;
+
+	NiBlockRef<NiStringPalette> stringPaletteRef;
 
 	NiBlockRef<BSAnimNotes> animNotesRef;
 	NiBlockRefShortArray<BSAnimNotes> animNotesRefs;

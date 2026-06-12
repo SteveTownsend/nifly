@@ -46,17 +46,222 @@ enum BSLightingShaderPropertyShaderType : uint32_t {
 	BSLSP_LAST = BSLSP_DISMEMBERMENT
 };
 
-CLONEABLECLASSDEF(NiProperty, NiObjectNET) {};
-
-STREAMABLECLASSDEF(NiShadeProperty, NiProperty) {
-public:
-	uint16_t flags = 0;
-
-	static constexpr const char* BlockName = "NiShadeProperty";
-	const char* GetBlockName() override { return BlockName; }
-
-	void Sync(NiStreamReversible& stream);
+enum SkyrimShaderPropertyFlags1 : uint32_t {
+	SLSF1_SPECULAR = 1 << 0,					// Enables specularity
+	SLSF1_SKINNED = 1 << 1,						// Required for skinned meshes
+	SLSF1_TEMP_REFRACTION = 1 << 2,
+	SLSF1_VERTEX_ALPHA = 1 << 3,				// Enables using alpha component of vertex colors
+	SLSF1_GREYSCALETOPALETTE_COLOR = 1 << 4,	// For effect shader property
+	SLSF1_GREYSCALETOPALETTE_ALPHA = 1 << 5,	// For effect shader property
+	SLSF1_USE_FALLOFF = 1 << 6,					// Use falloff value in effect shader property
+	SLSF1_ENVIRONMENT_MAPPING = 1 << 7,			// Enables environment mapping (uses environment map scale)
+	SLSF1_RECEIVE_SHADOWS = 1 << 8,				// Can receive shadows
+	SLSF1_CAST_SHADOWS = 1 << 9,				// Can cast shadows
+	SLSF1_FACEGEN_DETAIL_MAP = 1 << 10,			// Use a face detail map in the fourth texture slot
+	SLSF1_PARALLAX = 1 << 11,
+	SLSF1_MODEL_SPACE_NORMALS = 1 << 12,		// Use model space normals and an external specular map
+	SLSF1_NON_PROJECTIVE_SHADOWS = 1 << 13,
+	SLSF1_LANDSCAPE = 1 << 14,
+	SLSF1_REFRACTION = 1 << 15,					// Use normal map for refraction effect
+	SLSF1_FIRE_REFRACTION = 1 << 16,
+	SLSF1_EYE_ENVIRONMENT_MAPPING = 1 << 17,	// Enables eye environment mapping (must use the eye shader and the model must be skinned)
+	SLSF1_HAIR_SOFT_LIGHTING = 1 << 18,			// Keeps from going too bright under lights (hair shader only)
+	SLSF1_SCREENDOOR_ALPHA_FADE = 1 << 19,
+	SLSF1_LOCALMAP_HIDE_SECRET = 1 << 20,		// Object and anything it is positioned above will not render on local map view
+	SLSF1_FACEGEN_RGB_TINT = 1 << 21,			// Use tint mask for face
+	SLSF1_OWN_EMIT = 1 << 22,					// Provides its own emittance color (will not absorb light/ambient color?)
+	SLSF1_PROJECTED_UV = 1 << 23,				// Used for decalling?
+	SLSF1_MULTIPLE_TEXTURES = 1 << 24,
+	SLSF1_REMAPPABLE_TEXTURES = 1 << 25,
+	SLSF1_DECAL = 1 << 26,
+	SLSF1_DYNAMIC_DECAL = 1 << 27,
+	SLSF1_PARALLAX_OCCLUSION = 1 << 28,
+	SLSF1_EXTERNAL_EMITTANCE = 1 << 29,
+	SLSF1_SOFT_EFFECT = 1 << 30,
+	SLSF1_ZBUFFER_TEST = static_cast<uint32_t>(1) << 31				// Enables Z-Buffer testing
 };
+
+enum SkyrimShaderPropertyFlags2 : uint32_t {
+	SLSF2_ZBUFFER_WRITE = 1 << 0,				// Enables writing to the Z-Buffer
+	SLSF2_LOD_LANDSCAPE = 1 << 1,
+	SLSF2_LOD_OBJECTS = 1 << 2,
+	SLSF2_NO_FADE = 1 << 3,
+	SLSF2_DOUBLE_SIDED = 1 << 4,				// Enables double-sided rendering
+	SLSF2_VERTEX_COLORS = 1 << 5,				// Enables vertex color rendering
+	SLSF2_GLOW_MAP = 1 << 6,					// Use glow map in the third texture slot
+	SLSF2_ASSUME_SHADOWMASK = 1 << 7,
+	SLSF2_PACKED_TANGENT = 1 << 8,
+	SLSF2_MULTI_INDEX_SNOW = 1 << 9,
+	SLSF2_VERTEX_LIGHTING = 1 << 10,
+	SLSF2_UNIFORM_SCALE = 1 << 11,
+	SLSF2_FIT_SLOPE = 1 << 12,
+	SLSF2_BILLBOARD = 1 << 13,
+	SLSF2_NO_LOD_LAND_BLEND = 1 << 14,
+	SLSF2_ENVMAP_LIGHT_FADE = 1 << 15,
+	SLSF2_WIREFRAME = 1 << 16,
+	SLSF2_WEAPON_BLODD = 1 << 17,				// Used for blood decals on weapons
+	SLSF2_HIDE_ON_LOCAL_MAP = 1 << 18,			// Similar to hide secret, but only for self?
+	SLSF2_PREMULT_ALPHA = 1 << 19,				// Has premultiplied alpha
+	SLSF2_CLOUD_LOD = 1 << 20,
+	SLSF2_ANISOTROPIC_LIGHTING = 1 << 21,		// Hair only?
+	SLSF2_NO_TRANSPARENCY_MULTISAMPLING = 1 << 22,
+	SLSF2_UNUSED01 = 1 << 23,
+	SLSF2_MULTI_LAYER_PARALLAX = 1 << 24,		// Use multilayer (inner-layer) map
+	SLSF2_SOFT_LIGHTING = 1 << 25,				// Use soft lighting map
+	SLSF2_RIM_LIGHTING = 1 << 26,				// Use rim lighting map
+	SLSF2_BACK_LIGHTING = 1 << 27,				// Use back lighting map
+	SLSF2_UNUSED02 = 1 << 28,
+	SLSF2_TREE_ANIM = 1 << 29,					// Enables vertex animation, flutter animation
+	SLSF2_EFFECT_LIGHTING = 1 << 30,
+	SLSF2_HD_LOD_OBJECTS = static_cast<uint32_t>(1) << 31
+};
+
+enum Fallout4ShaderPropertyFlags1 : uint32_t {
+	F4SF1_SPECULAR = 1 << 0,					// Enables specularity
+	F4SF1_SKINNED = 1 << 1,						// Required for skinned meshes
+	F4SF1_TEMP_REFRACTION = 1 << 2,
+	F4SF1_VERTEX_ALPHA = 1 << 3,				// Enables using alpha component of vertex colors
+	F4SF1_GREYSCALETOPALETTE_COLOR = 1 << 4,	// For effect shader property
+	F4SF1_GREYSCALETOPALETTE_ALPHA = 1 << 5,	// For effect shader property
+	F4SF1_USE_FALLOFF = 1 << 6,					// Use falloff value in effect shader property
+	F4SF1_ENVIRONMENT_MAPPING = 1 << 7,			// Enables environment mapping (uses environment map scale)
+	F4SF1_RGB_FALLOFF = 1 << 8,
+	F4SF1_CAST_SHADOWS = 1 << 9,				// Can cast shadows
+	F4SF1_FACE = 1 << 10,
+	F4SF1_UI_MASK_RECTS = 1 << 11,
+	F4SF1_MODEL_SPACE_NORMALS = 1 << 12,
+	F4SF1_NON_PROJECTIVE_SHADOWS = 1 << 13,
+	F4SF1_LANDSCAPE = 1 << 14,
+	F4SF1_REFRACTION = 1 << 15,
+	F4SF1_FIRE_REFRACTION = 1 << 16,
+	F4SF1_EYE_ENVIRONMENT_MAPPING = 1 << 17,
+	F4SF1_HAIR = 1 << 18,
+	F4SF1_SCREENDOOR_ALPHA_FADE = 1 << 19,
+	F4SF1_LOCALMAP_HIDE_SECRET = 1 << 20,
+	F4SF1_SKIN_TINT = 1 << 21,
+	F4SF1_OWN_EMIT = 1 << 22,
+	F4SF1_PROJECTED_UV = 1 << 23,				// Used for decalling?
+	F4SF1_MULTIPLE_TEXTURES = 1 << 24,
+	F4SF1_TESSELLATE = 1 << 25,
+	F4SF1_DECAL = 1 << 26,
+	F4SF1_DYNAMIC_DECAL = 1 << 27,
+	F4SF1_CHARACTER_LIGHTING = 1 << 28,
+	F4SF1_EXTERNAL_EMITTANCE = 1 << 29,
+	F4SF1_SOFT_EFFECT = 1 << 30,
+	F4SF1_ZBUFFER_TEST = static_cast<uint32_t>(1) << 31				// Enables Z-Buffer testing
+};
+
+enum Fallout4ShaderPropertyFlags2 : uint32_t {
+	F4SF2_ZBUFFER_WRITE = 1 << 0,				// Enables writing to the Z-Buffer
+	F4SF2_LOD_LANDSCAPE = 1 << 1,
+	F4SF2_LOD_OBJECTS = 1 << 2,
+	F4SF2_NO_FADE = 1 << 3,
+	F4SF2_DOUBLE_SIDED = 1 << 4,				// Enables double-sided rendering
+	F4SF2_VERTEX_COLORS = 1 << 5,				// Enables vertex color rendering
+	F4SF2_GLOW_MAP = 1 << 6,
+	F4SF2_TRANSFORM_CHANGED = 1 << 7,
+	F4SF2_DISMEMBERMENT_MEATCUFF = 1 << 8,
+	F4SF2_TINT = 1 << 9,
+	F4SF2_GRASS_VERTEX_LIGHTING = 1 << 10,
+	F4SF2_GRASS_UNIFORM_SCALE = 1 << 11,
+	F4SF2_GRASS_FIT_SLOPE = 1 << 12,
+	F4SF2_GRASS_BILLBOARD = 1 << 13,
+	F4SF2_NO_LOD_LAND_BLEND = 1 << 14,
+	F4SF2_DISMEMBERMENT = 1 << 15,
+	F4SF2_WIREFRAME = 1 << 16,
+	F4SF2_WEAPON_BLODD = 1 << 17,
+	F4SF2_HIDE_ON_LOCAL_MAP = 1 << 18,
+	F4SF2_PREMULT_ALPHA = 1 << 19,
+	F4SF2_VATS_TARGET = 1 << 20,
+	F4SF2_ANISOTROPIC_LIGHTING = 1 << 21,
+	F4SF2_SKEW_SPECULAR_ALPHA = 1 << 22,
+	F4SF2_MENU_SCREEN = 1 << 23,
+	F4SF2_MULTI_LAYER_PARALLAX = 1 << 24,
+	F4SF2_ALPHA_TEST = 1 << 25,
+	F4SF2_GRADIENT_REMAP = 1 << 26,
+	F4SF2_VATS_TARGET_DRAW_ALL = 1 << 27,
+	F4SF2_PIPBOY_SCREEN = 1 << 28,
+	F4SF2_TREE_ANIM = 1 << 29,
+	F4SF2_EFFECT_LIGHTING = 1 << 30,
+	F4SF2_REFRACTION_WRITES_DEPTH = static_cast<uint32_t>(1) << 31
+};
+
+enum FO3ShadingFlags : uint16_t {
+	SHADING_HARD = 0,
+	SHADING_SMOOTH = 1
+};
+
+enum FO3ShaderFlags : uint32_t {
+	F3SF1_SPECULAR = 1 << 0,
+	F3SF1_SKINNED = 1 << 1,
+	F3SF1_LOW_DETAIL = 1 << 2,
+	F3SF1_VERTEX_ALPHA = 1 << 3,
+	F3SF1_UNKNOWN_1 = 1 << 4,
+	F3SF1_SINGLE_PASS = 1 << 5,
+	F3SF1_EMPTY = 1 << 6,
+	F3SF1_ENVIRONMENT_MAPPING = 1 << 7,
+	F3SF1_ALPHA_TEXTURE = 1 << 8,
+	F3SF1_UNKNOWN_2 = 1 << 9,
+	F3SF1_FACEGEN = 1 << 10,
+	F3SF1_PARALLAX_SHADER_INDEX_15 = 1 << 11,
+	F3SF1_UNKNOWN_3 = 1 << 12,
+	F3SF1_NON_PROJECTIVE_SHADOWS = 1 << 13,
+	F3SF1_UNKNOWN_4 = 1 << 14,
+	F3SF1_REFRACTION = 1 << 15,
+	F3SF1_FIRE_REFRACTION = 1 << 16,
+	F3SF1_EYE_ENVIRONMENT_MAPPING = 1 << 17,
+	F3SF1_HAIR = 1 << 18,
+	F3SF1_DYNAMIC_ALPHA = 1 << 19,
+	F3SF1_LOCALMAP_HIDE_SECRET = 1 << 20,
+	F3SF1_WINDOW_ENVIRONMENT_MAPPING = 1 << 21,
+	F3SF1_TREE_BILLBOARD = 1 << 22,
+	F3SF1_SHADOW_FRUSTUM = 1 << 23,
+	F3SF1_MULTIPLE_TEXTURES = 1 << 24,
+	F3SF1_REMAPPABLE_TEXTURES = 1 << 25,
+	F3SF1_DECAL_SINGLE_PASS = 1 << 26,
+	F3SF1_DYNAMIC_DECAL_SINGLE_PASS = 1 << 27,
+	F3SF1_PARALLAX_OCCLUSION = 1 << 28,
+	F3SF1_EXTERNAL_EMITTANCE = 1 << 29,
+	F3SF1_SHADOW_MAP = 1 << 30,
+	F3SF1_ZBUFFER_TEST = static_cast<uint32_t>(1) << 31
+};
+
+enum FO3ShaderFlags2 : uint32_t {
+	F3SF2_ZBUFFER_WRITE = 1 << 0,
+	F3SF2_LOD_LANDSCAPE = 1 << 1,
+	F3SF2_LOD_BUILDING = 1 << 2,
+	F3SF2_NO_FADE = 1 << 3,
+	F3SF2_REFRACTION_TINT = 1 << 4,
+	F3SF2_VERTEX_COLORS = 1 << 5,
+	F3SF2_UNKNOWN_1 = 1 << 6,
+	F3SF2_FIRST_LIGHT_IS_POINT_LIGHT = 1 << 7,
+	F3SF2_SECOND_LIGHT = 1 << 8,
+	F3SF2_THIRD_LIGHT = 1 << 9,
+	F3SF2_VERTEX_LIGHTING = 1 << 10,
+	F3SF2_UNIFORM_SCALE = 1 << 11,
+	F3SF2_FIT_SLOPE = 1 << 12,
+	F3SF2_BILLBOARD_AND_ENVMAP_LIGHT_FADE = 1 << 13,
+	F3SF2_NO_LOD_LAND_BLEND = 1 << 14,
+	F3SF2_ENVMAP_LIGHT_FADE = 1 << 15,
+	F3SF2_WIREFRAME = 1 << 16,
+	F3SF2_VATS_SELECTION = 1 << 17,
+	F3SF2_SHOW_IN_LOCAL_MAP = 1 << 18,
+	F3SF2_PREMULT_ALPHA = 1 << 19,
+	F3SF2_SKIP_NORMAL_MAPS = 1 << 20,
+	F3SF2_ALPHA_DECAL = 1 << 21,
+	F3SF2_NO_TRANSPARENCY_MULTISAMPLING = 1 << 22,
+	F3SF2_UNKNOWN_2 = 1 << 23,
+	F3SF2_UNKNOWN_3 = 1 << 24,
+	F3SF2_UNKNOWN_4 = 1 << 25,
+	F3SF2_UNKNOWN_5 = 1 << 26,
+	F3SF2_UNKNOWN_6 = 1 << 27,
+	F3SF2_UNKNOWN_7 = 1 << 28,
+	F3SF2_UNKNOWN_8 = 1 << 29,
+	F3SF2_UNKNOWN_9 = 1 << 30,
+	F3SF2_UNKNOWN_10 = static_cast<uint32_t>(1) << 31
+};
+
+CLONEABLECLASSDEF(NiProperty, NiObjectNET) {};
 
 STREAMABLECLASSDEF(NiSpecularProperty, NiProperty) {
 public:
@@ -243,9 +448,21 @@ public:
 	void Sync(NiStreamReversible& stream);
 };
 
+enum TestFunction : uint32_t {
+	TEST_ALWAYS,
+	TEST_LESS,
+	TEST_EQUAL,
+	TEST_LESS_EQUAL,
+	TEST_GREATER,
+	TEST_NOT_EQUAL,
+	TEST_GREATER_EQUAL,
+	TEST_NEVER
+};
+
 STREAMABLECLASSDEF(NiZBufferProperty, NiProperty) {
 public:
 	uint16_t flags = 3;
+	TestFunction testFunction = TEST_LESS_EQUAL;
 
 	static constexpr const char* BlockName = "NiZBufferProperty";
 	const char* GetBlockName() override { return BlockName; }
@@ -271,13 +488,14 @@ public:
 	virtual bool HasTextureSet() const { return false; }
 	virtual NiBlockRef<BSShaderTextureSet>* TextureSetRef() { return nullptr; }
 	virtual const NiBlockRef<BSShaderTextureSet>* TextureSetRef() const { return nullptr; }
-	virtual void SetTextureSetRef(const uint32_t textureId) {  }
+	virtual void SetTextureSetRef(const uint32_t) {  }
 
 	virtual bool IsSkinTinted() const { return false; }
 	virtual bool IsFaceTinted() const { return false; }
 	virtual bool IsSkinned() const { return false; }
 	virtual void SetSkinned(const bool) {}
 	virtual bool IsDoubleSided() const { return false; }
+	virtual void SetDoubleSided(const bool) {}
 	virtual bool IsModelSpace() const { return false; }
 	virtual bool IsEmissive() const { return false; }
 	virtual bool HasSpecular() const { return true; }
@@ -292,6 +510,7 @@ public:
 	virtual bool HasGlowmap() const { return false; }
 	virtual bool HasGreyscaleColor() const { return false; }
 	virtual bool HasEnvironmentMapping() const { return false; }
+	virtual void SetEnvironmentMapping(const bool) {}
 	virtual uint32_t GetShaderType() const { return 0; }
 	virtual void SetShaderType(const uint32_t) {}
 	virtual Vector2 GetUVOffset() const { return Vector2(); }
@@ -319,9 +538,18 @@ public:
 	virtual void SetWetMaterialName(const std::string&) {}
 };
 
+STREAMABLECLASSDEF(NiShadeProperty, NiShader) {
+public:
+	FO3ShadingFlags shadingFlags = SHADING_SMOOTH;
+
+	static constexpr const char* BlockName = "NiShadeProperty";
+	const char* GetBlockName() override { return BlockName; }
+
+	void Sync(NiStreamReversible& stream);
+};
+
 STREAMABLECLASSDEF(BSShaderProperty, NiShader) {
 public:
-	uint16_t shaderFlags = 1;
 	BSShaderType shaderType = SHADER_DEFAULT;
 	uint32_t shaderFlags1 = 0x82000000;
 	uint32_t shaderFlags2 = 1;
@@ -344,6 +572,7 @@ public:
 	bool IsSkinned() const override;
 	void SetSkinned(const bool enable) override;
 	bool IsDoubleSided() const override;
+	void SetDoubleSided(const bool enable) override;
 	bool IsModelSpace() const override;
 	bool IsEmissive() const override;
 	bool HasSpecular() const override;
@@ -358,6 +587,7 @@ public:
 	bool HasGlowmap() const override;
 	bool HasGreyscaleColor() const override;
 	bool HasEnvironmentMapping() const override;
+	void SetEnvironmentMapping(const bool enable) override;
 	float GetEnvironmentMapScale() const override;
 	Vector2 GetUVOffset() const override;
 	Vector2 GetUVScale() const override;
@@ -403,13 +633,6 @@ public:
 	const char* GetBlockName() override { return BlockName; }
 };
 
-class BSTextureArray {
-public:
-	NiStringVector<> textureArray;
-
-	void Sync(NiStreamReversible& stream) { textureArray.Sync(stream); }
-};
-
 STREAMABLECLASSDEF(BSLightingShaderProperty, BSShaderProperty) {
 public:
 	NiBlockRef<BSShaderTextureSet> textureSetRef;
@@ -417,64 +640,69 @@ public:
 	Vector3 emissiveColor;
 	float emissiveMultiple = 1.0f;
 	NiStringRef rootMaterialName;
-	uint32_t textureClampMode = 3;
+	float unkFloat = 0.0f;
+	TexClampMode textureClampMode = WRAP_S_WRAP_T;
 	float alpha = 1.0f;
 	float refractionStrength = 0.0f;
 	float glossiness = 1.0f;
 	Vector3 specularColor = Vector3(1.0f, 1.0f, 1.0f);
 	float specularStrength = 1.0f;
-	float softlighting = 0.3f;	// User Version <= 12, User Version 2 < 130
-	float rimlightPower = 2.0f; // User Version <= 12, User Version 2 < 130
+	float softlighting = 0.3f;
+	float rimlightPower = 2.0f;
 
-	float subsurfaceRolloff = 0.3f;		  // User Version == 12, User Version 2 >= 130
-	float rimlightPower2 = NiFloatMax;	  // User Version == 12, User Version 2 >= 130
-	float backlightPower = 0.0f;		  // User Version == 12, User Version 2 >= 130
-	float grayscaleToPaletteScale = 1.0f; // User Version == 12, User Version 2 >= 130
-	float fresnelPower = 5.0f;			  // User Version == 12, User Version 2 >= 130
-	float wetnessSpecScale = 0.6f;		  // User Version == 12, User Version 2 >= 130
-	float wetnessSpecPower = 1.4f;		  // User Version == 12, User Version 2 >= 130
-	float wetnessMinVar = 0.2f;			  // User Version == 12, User Version 2 >= 130
-	float wetnessEnvmapScale = 1.0f;	  // User Version == 12, User Version 2 >= 130
-	float wetnessFresnelPower = 1.6f;	  // User Version == 12, User Version 2 >= 130
-	float wetnessMetalness = 0.0f;		  // User Version == 12, User Version 2 >= 130
-	float wetnessUnknown1 = 0.0f;		  // User Version == 12, User Version 2 == 155
-	float wetnessUnknown2 = 0.0f;		  // User Version == 12, User Version 2 == 155
+	float subsurfaceRolloff = 0.3f;
+	float rimlightPower2 = NiFloatMax;
+	float backlightPower = 0.0f;
+	float grayscaleToPaletteScale = 1.0f;
+	float fresnelPower = 5.0f;
+	float wetnessSpecScale = 0.6f;
+	float wetnessSpecPower = 1.4f;
+	float wetnessMinVar = 0.2f;
+	float wetnessEnvmapScale = 1.0f;
+	float wetnessFresnelPower = 1.6f;
+	float wetnessMetalness = 0.0f;
+	float wetnessUnknown1 = 0.0f;
+	float wetnessUnknown2 = 0.0f;
 
-	float lumEmittance = 100.0f;   // User Version == 12, User Version 2 == 155
-	float exposureOffset = 13.5f;  // User Version == 12, User Version 2 == 155
-	float finalExposureMin = 2.0f; // User Version == 12, User Version 2 == 155
-	float finalExposureMax = 3.0f; // User Version == 12, User Version 2 == 155
+	float lumEmittance = 100.0f;
+	float exposureOffset = 13.5f;
+	float finalExposureMin = 2.0f;
+	float finalExposureMax = 3.0f;
 
-	bool doTranslucency = false;	// User Version == 12, User Version 2 == 155
-	Color3 subsurfaceColor;			// User Version == 12, User Version 2 == 155
-	float transmissiveScale = 1.0f; // User Version == 12, User Version 2 == 155
-	float turbulence = 0.0f;		// User Version == 12, User Version 2 == 155
-	bool thickObject = false;		// User Version == 12, User Version 2 == 155
-	bool mixAlbedo = false;			// User Version == 12, User Version 2 == 155
+	bool doTranslucency = false;
+	Color3 subsurfaceColor;
+	float transmissiveScale = 1.0f;
+	float turbulence = 0.0f;
+	bool thickObject = false;
+	bool mixAlbedo = false;
 
-	bool hasTextureArrays = false;			   // User Version == 12, User Version 2 == 155
-	uint32_t numTextureArrays = 0;			   // User Version == 12, User Version 2 == 155
-	std::vector<BSTextureArray> textureArrays; // User Version == 12, User Version 2 == 155
+	bool hasTextureArrays = false;
+	uint32_t numTextureArrays = 0;
+	std::vector<BSTextureArray> textureArrays;
 
-	bool useSSR = false;		// Shader Type == 1, User Version == 12, User Version 2 == 130
-	bool wetnessUseSSR = false; // Shader Type == 1, User Version == 12, User Version 2 == 130
+	float unkFloat1 = 0.0f;
+	float unkFloat2 = 0.0f;
+	uint16_t unkShort1 = 0;
+
+	bool useSSR = false;
+	bool wetnessUseSSR = false;
 	Vector3 skinTintColor = Vector3(1.0f,
 									1.0f,
-									1.0f); // Shader Type == 5, User Version == 12, User Version 2 <= 130
-	float skinTintAlpha = 0.0f;			   // Shader Type == 5, User Version == 12, User Version 2 == 130
+									1.0f);
+	float skinTintAlpha = 0.0f;
 	Vector3 hairTintColor = Vector3(1.0f,
 									1.0f,
-									1.0f);	  // Shader Type == 6, User Version == 12, User Version 2 <= 130
-	float maxPasses = 1.0f;					  // Shader Type == 7
-	float scale = 1.0f;						  // Shader Type == 7
-	float parallaxInnerLayerThickness = 0.0f; // Shader Type == 11
-	float parallaxRefractionScale = 1.0f;	  // Shader Type == 11
-	Vector2 parallaxInnerLayerTextureScale = Vector2(1.0f, 1.0f); // Shader Type == 11
-	float parallaxEnvmapStrength = 1.0f;						  // Shader Type == 11
-	Color4 sparkleParameters;									  // Shader Type == 14
-	float eyeCubemapScale = 1.0f;								  // Shader Type == 16
-	Vector3 eyeLeftReflectionCenter;							  // Shader Type == 16
-	Vector3 eyeRightReflectionCenter;							  // Shader Type == 16
+									1.0f);
+	float maxPasses = 1.0f;
+	float scale = 1.0f;
+	float parallaxInnerLayerThickness = 0.0f;
+	float parallaxRefractionScale = 1.0f;
+	Vector2 parallaxInnerLayerTextureScale = Vector2(1.0f, 1.0f);
+	float parallaxEnvmapStrength = 1.0f;
+	Color4 sparkleParameters;
+	float eyeCubemapScale = 1.0f;
+	Vector3 eyeLeftReflectionCenter;
+	Vector3 eyeRightReflectionCenter;
 
 	BSLightingShaderProperty();
 	BSLightingShaderProperty(NiVersion& version);
@@ -523,12 +751,13 @@ public:
 STREAMABLECLASSDEF(BSEffectShaderProperty, BSShaderProperty) {
 public:
 	NiString sourceTexture;
+	float unkFloat = 0.0f;
 	uint32_t textureClampMode = 0;
 	float falloffStartAngle = 1.0f;
 	float falloffStopAngle = 1.0f;
 	float falloffStartOpacity = 0.0f;
 	float falloffStopOpacity = 0.0f;
-	float refractionPower = 0.0f; // User Version == 12, User Version 2 == 155
+	float refractionPower = 0.0f;
 	Color4 baseColor;
 	float baseColorScale = 1.0f;
 	float softFalloffDepth = 0.0f;
@@ -539,15 +768,19 @@ public:
 	NiString envMaskTexture;
 	float envMapScale = 1.0f;
 
-	NiString reflectanceTexture;  // User Version == 12, User Version 2 == 155
-	NiString lightingTexture;	  // User Version == 12, User Version 2 == 155
-	Color3 emittanceColor;		  // User Version == 12, User Version 2 == 155
-	NiString emitGradientTexture; // User Version == 12, User Version 2 == 155
+	NiString reflectanceTexture;
+	NiString lightingTexture;
+	Color3 emittanceColor;
+	NiString emitGradientTexture;
 
-	float lumEmittance = 100.0f;   // User Version == 12, User Version 2 == 155
-	float exposureOffset = 13.5f;  // User Version == 12, User Version 2 == 155
-	float finalExposureMin = 2.0f; // User Version == 12, User Version 2 == 155
-	float finalExposureMax = 3.0f; // User Version == 12, User Version 2 == 155
+	float lumEmittance = 100.0f;
+	float exposureOffset = 13.5f;
+	float finalExposureMin = 2.0f;
+	float finalExposureMax = 3.0f;
+
+	uint8_t unkBytes[7]{};
+	float unkFloats[6]{};
+	uint8_t unkByte1 = 0;
 
 	static constexpr const char* BlockName = "BSEffectShaderProperty";
 	const char* GetBlockName() override { return BlockName; }
@@ -584,7 +817,7 @@ public:
 
 STREAMABLECLASSDEF(BSShaderLightingProperty, BSShaderProperty) {
 public:
-	uint32_t textureClampMode = 3; // User Version <= 11
+	TexClampMode textureClampMode = WRAP_S_WRAP_T; // User Version <= 11
 
 	void Sync(NiStreamReversible& stream);
 };

@@ -35,14 +35,19 @@ void NiSkinData::Sync(NiStreamReversible& stream) {
 
 		stream.Sync(numVerts);
 
+		if (!hasVertWeights)
+			numVerts = 0;
+
 		if (stream.GetMode() == NiStreamReversible::Mode::Reading)
 			boneData.numVertices = numVerts;
 
-		boneData.vertexWeights.resize(numVerts);
+		if (hasVertWeights) {
+			boneData.vertexWeights.resize(numVerts);
 
-		// Num Verts * 6 bytes (index + weight)
-		stream.Sync((char*) boneData.vertexWeights.data(),
-					static_cast<std::streamsize>(numVerts) * sizeof(SkinWeight));
+			// Num Verts * 6 bytes (index + weight)
+			stream.Sync((char*) boneData.vertexWeights.data(),
+						static_cast<std::streamsize>(numVerts) * sizeof(SkinWeight));
+		}
 	}
 }
 
@@ -92,9 +97,10 @@ void NiSkinPartition::Sync(NiStreamReversible& stream) {
 
 			vertData.resize(numVertices);
 
+			uint32_t vertexMainSize = vertexDesc.GetVertexMainSize();
 			for (uint32_t i = 0; i < numVertices; i++) {
 				auto& vertex = vertData[i];
-				if (HasVertices()) {
+				if (HasVertices() && vertexMainSize <= 16) {
 					if (IsFullPrecision()) {
 						// Full precision (vert + bitangentX = 16 bytes)
 						stream.Sync((char*) &vertex.vert, sizeof(vertex.vert) + sizeof(vertex.bitangentX));
@@ -107,6 +113,21 @@ void NiSkinPartition::Sync(NiStreamReversible& stream) {
 
 						stream.SyncHalf(vertex.bitangentX);
 					}
+				}
+				else if (vertexMainSize > 16) {
+					// Full precision (vert = 12 bytes)
+					stream.Sync((char*) &vertex.vert, sizeof(vertex.vert));
+
+					// Variable length extra float elements
+					uint32_t vertexExtraCount = (vertexMainSize - 16) / 4;
+					if (vertexExtraCount > 0) {
+						vertex.extra.resize(vertexExtraCount);
+						for (uint32_t e = 0; e < vertexExtraCount; e++)
+							stream.Sync(vertex.extra[e]);
+					}
+
+					// BitangentX after extra floats (bitangentX = 4 bytes)
+					stream.Sync(vertex.bitangentX);
 				}
 
 				if (HasUVs()) {
@@ -491,7 +512,10 @@ void NiSkinPartition::PrepareTriParts(const std::vector<Triangle>& shapeTris) {
 
 void NiSkinInstance::Sync(NiStreamReversible& stream) {
 	dataRef.Sync(stream);
-	skinPartitionRef.Sync(stream);
+
+	if (stream.GetVersion().File() >= V10_1_0_101)
+		skinPartitionRef.Sync(stream);
+
 	targetRef.Sync(stream);
 	boneRefs.Sync(stream);
 }
@@ -543,6 +567,8 @@ void BSSkinBoneData::Sync(NiStreamReversible& stream) {
 
 
 void BSSkinInstance::Sync(NiStreamReversible& stream) {
+	boneRefs.SetKeepEmptyRefs(stream.GetVersion().IsSF());
+
 	targetRef.Sync(stream);
 	dataRef.Sync(stream);
 	boneRefs.Sync(stream);

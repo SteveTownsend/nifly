@@ -12,6 +12,7 @@ See the included GPLv3 LICENSE file
 #include "NifUtil.hpp"
 
 #include <array>
+#include <cmath>
 
 using namespace nifly;
 
@@ -44,7 +45,7 @@ void NiGeometryData::Sync(NiStreamReversible& stream) {
 
 	stream.Sync(hasVertices);
 
-	if (hasVertices && !isPSys) {
+	if (hasVertices && (!isPSys || stream.GetVersion().File() < V20_2_0_7)) {
 		vertices.resize(numVertices);
 		for (uint16_t i = 0; i < numVertices; i++)
 			stream.Sync(vertices[i]);
@@ -66,7 +67,7 @@ void NiGeometryData::Sync(NiStreamReversible& stream) {
 		stream.Sync(materialCRC);
 
 	stream.Sync(hasNormals);
-	if (hasNormals && !isPSys) {
+	if (hasNormals && (!isPSys || stream.GetVersion().File() < V20_2_0_7)) {
 		normals.resize(numVertices);
 
 		for (uint16_t i = 0; i < numVertices; i++)
@@ -87,13 +88,13 @@ void NiGeometryData::Sync(NiStreamReversible& stream) {
 	stream.Sync(bounds);
 
 	stream.Sync(hasVertexColors);
-	if (hasVertexColors && !isPSys) {
+	if (hasVertexColors && (!isPSys || stream.GetVersion().File() < V20_2_0_7)) {
 		vertexColors.resize(numVertices);
 		for (uint16_t i = 0; i < numVertices; i++)
 			stream.Sync(vertexColors[i]);
 	}
 
-	if (numTextureSets > 0 && !isPSys) {
+	if (numTextureSets > 0 && (!isPSys || stream.GetVersion().File() < V20_2_0_7)) {
 		uvSets.resize(numTextureSets);
 		for (uint32_t i = 0; i < numTextureSets; i++) {
 			uvSets[i].resize(numVertices);
@@ -262,7 +263,7 @@ void NiGeometryData::notifyVerticesDelete(const std::vector<uint16_t>& vertIndic
 		EraseVectorIndices(uvSet, vertIndices);
 }
 
-void NiGeometryData::RecalcNormals(const bool, const float) {
+void NiGeometryData::RecalcNormals(const bool, const float, std::unordered_set<uint32_t>*) {
 	SetNormals(true);
 }
 
@@ -451,7 +452,7 @@ void BSTriShape::Sync(NiStreamReversible& stream) {
 
 	stream.Sync(bounds);
 
-	if (stream.GetVersion().Stream() == 155)
+	if (stream.GetVersion().Stream() > 139)
 		for (float& i : boundMinMax)
 			stream.Sync(i);
 
@@ -504,9 +505,11 @@ void BSTriShape::Sync(NiStreamReversible& stream) {
 		vertData.resize(numVertices);
 
 		if (dataSize > 0) {
+			uint32_t vertexMainSize = vertexDesc.GetVertexMainSize();
+
 			for (uint16_t i = 0; i < numVertices; i++) {
 				auto& vertex = vertData[i];
-				if (HasVertices()) {
+				if (HasVertices() && vertexMainSize <= 16) {
 					if (IsFullPrecision() || stream.GetVersion().Stream() == 100) {
 						// Full precision (vert + bitangentX = 16 bytes)
 						stream.Sync((char*) &vertex.vert, sizeof(vertex.vert) + sizeof(vertex.bitangentX));
@@ -519,6 +522,21 @@ void BSTriShape::Sync(NiStreamReversible& stream) {
 
 						stream.SyncHalf(vertex.bitangentX);
 					}
+				}
+				else if (vertexMainSize > 16) {
+					// Full precision (vert = 12 bytes)
+					stream.Sync((char*) &vertex.vert, sizeof(vertex.vert));
+
+					// Variable length extra float elements
+					uint32_t vertexExtraCount = (vertexMainSize - 16) / 4;
+					if (vertexExtraCount > 0) {
+						vertex.extra.resize(vertexExtraCount);
+						for (uint32_t e = 0; e < vertexExtraCount; e++)
+							stream.Sync(vertex.extra[e]);
+					}
+
+					// BitangentX after extra floats (bitangentX = 4 bytes)
+					stream.Sync(vertex.bitangentX);
 				}
 
 				if (HasUVs()) {
@@ -880,11 +898,11 @@ void BSTriShape::SetEyeData(const std::vector<float>& in) {
 
 static void CalculateNormals(const std::vector<Vector3>& verts,
 							 const std::vector<Triangle>& tris,
-							 std::vector<Vector3>& norms,
+							 std::vector<Vector3>& outNorms,
 							 const bool smooth,
-							 float smoothThresh) {
-	// Zero norms
-	norms.clear();
+							 float smoothThresh,
+							 std::unordered_set<uint32_t>* lockedIndices = nullptr) {
+	std::vector<Vector3> norms;
 	norms.resize(verts.size());
 
 	// Face normals
@@ -923,6 +941,18 @@ static void CalculateNormals(const std::vector<Vector3>& verts,
 				norms[matchset[j]] = seamNorms[j];
 		}
 	}
+
+	if (lockedIndices) {
+		outNorms.resize(norms.size());
+
+		// Move normals of indices that aren't locked only
+		for (uint32_t i = 0; i < static_cast<uint32_t>(norms.size()); i++) {
+			if (lockedIndices->find(i) == lockedIndices->end())
+				outNorms[i] = std::move(norms[i]);
+		}
+	}
+	else
+		outNorms = std::move(norms);
 }
 
 void BSTriShape::RecalcNormals(const bool smooth,
@@ -931,7 +961,7 @@ void BSTriShape::RecalcNormals(const bool smooth,
 	UpdateRawVertices();
 	SetNormals(true);
 
-	CalculateNormals(rawVertices, triangles, rawNormals, smooth, smoothThresh);
+	CalculateNormals(rawVertices, triangles, rawNormals, smooth, smoothThresh, lockedIndices);
 
 	for (uint16_t i = 0; i < numVertices; i++) {
 		if (lockedIndices) {
@@ -1058,6 +1088,13 @@ int BSTriShape::CalcDataSizes(NiVersion& version) {
 			attributeSizes[VA_POSITION] = 4;
 		else
 			attributeSizes[VA_POSITION] = 2;
+	}
+
+	if (!vertData.empty() && !vertData.front().extra.empty()) {
+		// Add extra float elements to vertex size
+		uint8_t extraCount = static_cast<uint8_t>(vertData.front().extra.size());
+		if (extraCount > 0)
+			attributeSizes[VA_POSITION] += extraCount;
 	}
 
 	if (HasUVs())
@@ -1564,6 +1601,251 @@ void BSDynamicTriShape::Create(NiVersion& version,
 	}
 }
 
+void BSGeometryMeshData::Sync(NiStreamReversible& stream) {
+	// verts, normals, vertcolors are always present, though it's possible the counts are 0
+	SetVertices(true);
+	SetNormals(true);
+	SetTangents(true);
+	SetVertexColors(true);
+
+	// When writing, update counts from actual data sizes
+	if (stream.GetMode() == NiStreamReversible::Mode::Writing) {
+		nTriIndices = static_cast<uint32_t>(tris.size()) * 3;
+		nVertices = static_cast<uint32_t>(vertices.size());
+		numVertices = static_cast<uint16_t>(std::min(nVertices, static_cast<uint32_t>(0xFFFF)));
+		nUV1 = uvSets.size() > 0 ? static_cast<uint32_t>(uvSets[0].size()) : 0;
+		nUV2 = uvSets.size() > 1 ? static_cast<uint32_t>(uvSets[1].size()) : 0;
+		nColors = static_cast<uint32_t>(vColors.size());
+		nNormals = static_cast<uint32_t>(normals.size());
+		nTangents = static_cast<uint32_t>(tangents.size());
+		nTotalWeights = 0;
+		for (auto& vw : skinWeights)
+			nTotalWeights += static_cast<uint32_t>(vw.size());
+		nLODS = static_cast<uint32_t>(lods.size());
+		nMeshlets = static_cast<uint32_t>(meshletList.size());
+		nCullData = static_cast<uint32_t>(cullDataList.size());
+	}
+
+	stream.Sync(version);
+	if (version > 2)
+		return;
+
+	stream.Sync(nTriIndices);
+	tris.resize(nTriIndices / 3);
+	for (uint32_t t = 0; t < nTriIndices / 3; t++)
+		stream.Sync(tris[t]);
+
+	stream.Sync(scale);
+	if (scale <= 0.0f)
+		return;
+
+	stream.Sync(nWeightsPerVert);
+
+	stream.Sync(nVertices);
+	if (stream.GetMode() == NiStreamReversible::Mode::Reading)
+		numVertices = static_cast<uint16_t>(nVertices);
+	else
+		numVertices = static_cast<uint16_t>(std::min(nVertices, static_cast<uint32_t>(0xFFFF)));
+	vertices.resize(nVertices);
+	for (uint32_t v = 0; v < nVertices; v++) {
+		if (stream.GetMode() == NiStreamReversible::Mode::Reading) {
+			auto unpack = [&](const float posScale) -> float {
+				int16_t val;
+				stream.Sync(val);
+				if (val < 0)
+					return static_cast<float>((val / 32768.0) * scale * posScale);
+				else
+					return static_cast<float>((val / 32767.0) * scale * posScale);
+			};
+
+			vertices[v].x = unpack(havokScale);
+			vertices[v].y = unpack(havokScale);
+			vertices[v].z = unpack(havokScale);
+		}
+		else {
+			auto pack = [&](float component, float posScale) {
+				int16_t val;
+				if (component < 0)
+					val = static_cast<int16_t>(std::round((component / (scale * posScale)) * 32768.0f));
+				else
+					val = static_cast<int16_t>(std::round((component / (scale * posScale)) * 32767.0f));
+				stream.Sync(val);
+			};
+
+			pack(vertices[v].x, havokScale);
+			pack(vertices[v].y, havokScale);
+			pack(vertices[v].z, havokScale);
+		}
+	}
+
+	stream.Sync(nUV1);
+	if (nUV1 > 0)
+		SetUVs(true);
+
+	uvSets.resize(2);
+
+	uvSets[0].resize(nUV1);
+	for (uint32_t uv = 0; uv < nUV1; uv++) {
+		stream.SyncHalf(uvSets[0][uv].u);
+		stream.SyncHalf(uvSets[0][uv].v);
+	}
+
+	stream.Sync(nUV2);
+	uvSets[1].resize(nUV2);
+	for (uint32_t uv = 0; uv < nUV2; uv++) {
+		stream.SyncHalf(uvSets[1][uv].u);
+		stream.SyncHalf(uvSets[1][uv].v);
+	}
+
+	stream.Sync(nColors);
+	vColors.resize(nColors);
+	for (uint32_t c = 0; c < nColors; c++)
+		stream.Sync(vColors[c]);
+
+	stream.Sync(nNormals);
+	normals.resize(nNormals);
+	for (uint32_t n = 0; n < nNormals; n++)
+		stream.SyncUDEC3(normals[n]);
+
+	stream.Sync(nTangents);
+	tangents.resize(nTangents);
+	tangentWs.resize(nTangents, 1);
+	for (uint32_t t = 0; t < nTangents; t++) {
+		stream.SyncUDEC3(tangents[t], tangentWs[t]);
+	}
+
+	/*
+	FIXME: Normal and tangent data is in a 10:10:10:2 bits packed X,Y,Z,W format.
+	Each channel should be normalized from unsigned integers to -1.0 to 1.0.
+	The bitangent can be calculated with this formula:
+	bitangent.xyz = normal.xyz x tangent.xyz * tangent.w (the 'x' means cross product).
+	*/
+
+	stream.Sync(nTotalWeights);
+	if (nWeightsPerVert > 0)
+		skinWeights.resize(nTotalWeights / nWeightsPerVert);
+
+	for (auto& vw : skinWeights) {
+		vw.resize(nWeightsPerVert);
+		for (auto& bw : vw)
+			stream.Sync(bw);
+	}
+
+	stream.Sync(nLODS);
+	lods.resize(nLODS);
+	for (auto& lod : lods) {
+		uint32_t nLodTriIndices = static_cast<uint32_t>(lod.size() * 3);
+		stream.Sync(nLodTriIndices);
+
+		lod.resize(nLodTriIndices / 3);
+		for (auto& lodTri : lod)
+			stream.Sync(lodTri);
+	}
+
+	stream.Sync(nMeshlets);
+	meshletList.resize(nMeshlets);
+	for (auto& meshlet : meshletList) {
+		stream.Sync(meshlet.vertCount);
+		stream.Sync(meshlet.vertOffset);
+		stream.Sync(meshlet.primCount);
+		stream.Sync(meshlet.primOffset);
+	}
+
+	stream.Sync(nCullData);
+	cullDataList.resize(nCullData);
+	for (auto& cullData : cullDataList) {
+		stream.Sync(cullData.center);
+		stream.Sync(cullData.expand);
+	}
+}
+
+void BSGeometryMesh::Sync(NiStreamReversible& stream) {
+	stream.Sync(triSize);
+	stream.Sync(numVerts);
+	stream.Sync(flags);
+
+	if (internalGeom) {
+		// Mesh data is embedded inline in the NIF (flag 0x200 on BSGeometry)
+		meshData.Sync(stream);
+	}
+	else {
+		// External .mesh file path reference
+		meshName.Sync(stream, 4);
+	}
+}
+
+void BSGeometry::Sync(NiStreamReversible& stream) {
+	stream.Sync(bounds);
+
+	for (float& i : boundMinMax)
+		stream.Sync(i);
+
+	skinInstanceRef.Sync(stream);
+	shaderPropertyRef.Sync(stream);
+	alphaPropertyRef.Sync(stream);
+
+	if (stream.GetMode() == NiStreamReversible::Mode::Reading)
+		meshes.clear();
+
+	bool internal = HasInternalGeomData();
+
+	size_t meshCount = meshes.size();
+	for (uint32_t i = 0; i < 4; i++) {
+		uint8_t testByte = i < meshCount;
+		stream.Sync(testByte);
+		if (testByte) {
+			if (stream.GetMode() == NiStreamReversible::Mode::Reading) {
+				BSGeometryMesh mesh{};
+				meshes.push_back(mesh);
+			}
+			meshes[i].internalGeom = internal;
+			meshes[i].Sync(stream);
+		}
+	}
+}
+
+void BSGeometry::GetChildRefs(std::set<NiRef*>& refs) {
+	NiAVObject::GetChildRefs(refs);
+
+	refs.insert(&skinInstanceRef);
+	refs.insert(&shaderPropertyRef);
+	refs.insert(&alphaPropertyRef);
+}
+
+void BSGeometry::GetChildIndices(std::vector<uint32_t>& indices) {
+	NiAVObject::GetChildIndices(indices);
+
+	indices.push_back(skinInstanceRef.index);
+	indices.push_back(shaderPropertyRef.index);
+	indices.push_back(alphaPropertyRef.index);
+}
+
+
+NiGeometryData* BSGeometry::GetGeomData() const {
+	if (meshes.size() > selectedMesh) {
+		// Breaking const correctness here to cast to the desired level of the class heirarchy.
+		//   Perhaps NiShape GetGeomData should return a const* or it shouldn't be a const function? 
+		return dynamic_cast<NiGeometryData*>(const_cast<BSGeometryMeshData*>(&meshes[selectedMesh].meshData));
+	}
+	return nullptr;
+}
+
+
+bool BSGeometry::GetTriangles(std::vector<Triangle>& tris) const {
+	if (meshes.size() > selectedMesh) {
+		tris = meshes[selectedMesh].meshData.tris;
+		return true;
+	}
+
+	return false;
+}
+
+void BSGeometry::SetTriangles(const std::vector<Triangle>& tris) {
+	if (meshes.size() > selectedMesh) {
+		meshes[selectedMesh].meshData.tris = tris;
+	}
+}
+
 
 void NiGeometry::Sync(NiStreamReversible& stream) {
 	dataRef.Sync(stream);
@@ -1738,13 +2020,15 @@ void NiTriShapeData::SetTriangles(const std::vector<Triangle>& tris) {
 	numTrianglePoints = numTriangles * 3;
 }
 
-void NiTriShapeData::RecalcNormals(const bool smooth, const float smoothThresh) {
+void NiTriShapeData::RecalcNormals(const bool smooth,
+								   const float smoothThresh,
+								   std::unordered_set<uint32_t>* lockedIndices) {
 	if (!HasNormals())
 		return;
 
 	NiTriBasedGeomData::RecalcNormals();
 
-	CalculateNormals(vertices, triangles, normals, smooth, smoothThresh);
+	CalculateNormals(vertices, triangles, normals, smooth, smoothThresh, lockedIndices);
 }
 
 void NiTriShapeData::CalcTangentSpace() {
@@ -1905,7 +2189,9 @@ std::vector<Triangle> NiTriStripsData::StripsToTris() const {
 	return GenerateTrianglesFromStrips(stripsInfo.points);
 }
 
-void NiTriStripsData::RecalcNormals(const bool smooth, const float smoothThresh) {
+void NiTriStripsData::RecalcNormals(const bool smooth,
+									const float smoothThresh,
+									std::unordered_set<uint32_t>* lockedIndices) {
 	if (!HasNormals())
 		return;
 
@@ -1913,7 +2199,7 @@ void NiTriStripsData::RecalcNormals(const bool smooth, const float smoothThresh)
 
 	std::vector<Triangle> tris = StripsToTris();
 
-	CalculateNormals(vertices, tris, normals, smooth, smoothThresh);
+	CalculateNormals(vertices, tris, normals, smooth, smoothThresh, lockedIndices);
 }
 
 void NiTriStripsData::CalcTangentSpace() {

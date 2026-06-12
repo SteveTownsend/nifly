@@ -8,7 +8,9 @@ See the included GPLv3 LICENSE file
 
 #include "Object3d.hpp"
 
+#include <filesystem>
 #include <memory>
+#include <string_view>
 
 namespace nifly {
 // Applies a vertex index renumbering map to p1, p2, and p3 of a vector of triangles.
@@ -19,7 +21,7 @@ void ApplyMapToTriangles(std::vector<Triangle>& tris,
 						 const std::vector<IndexType1>& map,
 						 std::vector<IndexType2>* deletedTris = nullptr) {
 	const size_t mapsz = map.size();
-	int di = 0;
+	size_t di = 0;
 	for (IndexType2 si = 0; si < static_cast<IndexType2>(tris.size()); ++si) {
 		const Triangle& stri = tris[si];
 		// Triangle's indices are unsigned, but IndexType might be signed.
@@ -179,6 +181,25 @@ std::vector<Triangle> GenerateTrianglesFromStrips(const std::vector<std::vector<
 }
 
 #ifndef SWIG
+// Helper to check if a potentially non valid UTF8 path is relative
+inline bool is_relative_path(std::string_view path) noexcept {
+	try {
+		// Use std::filesystem::path constructor instead of deprecated u8path()
+		return std::filesystem::path(path).is_relative();
+	}
+	catch (const std::exception&) {
+		// ignore the exception
+		// the path is invalid, but might be readable by the game
+		return false;
+	}
+}
+
+// Helper to trim whitespace characters including newlines from the start and end of a string
+void trim_whitespace(std::string& str);
+
+std::unique_ptr<std::istream> GetBinaryInputFileStream(const std::filesystem::path& path);
+std::unique_ptr<std::ostream> GetBinaryOutputFileStream(const std::filesystem::path& path);
+
 // Convenience wrapper for std::find
 template<typename Container, typename Value = typename Container::value>
 auto find(Container& cont, Value&& val) {

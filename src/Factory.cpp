@@ -30,9 +30,12 @@ NiFactoryRegister::NiFactoryRegister() {
 	RegisterFactory<BSTreeNode>();
 	RegisterFactory<BSOrderedNode>();
 	RegisterFactory<BSMultiBoundNode>();
+	RegisterFactory<BSDistantObjectInstancedNode>();
 	RegisterFactory<BSDebrisNode>();
 	RegisterFactory<BSBlastNode>();
 	RegisterFactory<BSDamageStage>();
+	RegisterFactory<BSWeakReferenceNode>();
+	RegisterFactory<BSFaceGenNiNode>();
 	RegisterFactory<NiBone>();
 	RegisterFactory<NiSortAdjustNode>();
 	RegisterFactory<NiRangeLODData>();
@@ -67,12 +70,15 @@ NiFactoryRegister::NiFactoryRegister() {
 	RegisterFactory<BSSubIndexTriShape>();
 	RegisterFactory<BSMeshLODTriShape>();
 	RegisterFactory<BSDynamicTriShape>();
+	RegisterFactory<BSGeometry>();
 	RegisterFactory<NiSkinInstance>();
 	RegisterFactory<BSDismemberSkinInstance>();
 	RegisterFactory<NiSkinData>();
 	RegisterFactory<NiSkinPartition>();
 	RegisterFactory<BSSkinInstance>();
 	RegisterFactory<BSSkinBoneData>();
+	RegisterFactory<SkinAttach>();
+	RegisterFactory<BoneTranslations>();
 	RegisterFactory<NiShadeProperty>();
 	RegisterFactory<NiSpecularProperty>();
 	RegisterFactory<NiTexturingProperty>();
@@ -89,6 +95,7 @@ NiFactoryRegister::NiFactoryRegister() {
 	RegisterFactory<VolumetricFogShaderProperty>();
 	RegisterFactory<SkyShaderProperty>();
 	RegisterFactory<TileShaderProperty>();
+	RegisterFactory<BSShaderNoLightingProperty>();
 	RegisterFactory<BSShaderPPLightingProperty>();
 	RegisterFactory<Lighting30ShaderProperty>();
 	RegisterFactory<BSLightingShaderProperty>();
@@ -206,6 +213,7 @@ NiFactoryRegister::NiFactoryRegister() {
 	RegisterFactory<NiPSysInitialRotAngleVarCtlr>();
 	RegisterFactory<NiPSysEmitterPlanarAngleCtlr>();
 	RegisterFactory<NiPSysEmitterPlanarAngleVarCtlr>();
+	RegisterFactory<NiPSysRotDampeningCtlr>();
 	RegisterFactory<NiPSysEmitterCtlr>();
 	RegisterFactory<BSPSysMultiTargetEmitterCtlr>();
 	RegisterFactory<NiControllerManager>();
@@ -240,6 +248,7 @@ NiFactoryRegister::NiFactoryRegister() {
 	RegisterFactory<NiPosData>();
 	RegisterFactory<NiBoolData>();
 	RegisterFactory<NiFloatData>();
+	RegisterFactory<NiExtraData>();
 	RegisterFactory<NiBinaryExtraData>();
 	RegisterFactory<NiFloatExtraData>();
 	RegisterFactory<NiFloatsExtraData>();
@@ -256,6 +265,7 @@ NiFactoryRegister::NiFactoryRegister() {
 	RegisterFactory<BSEyeCenterExtraData>();
 	RegisterFactory<BSPackedCombinedSharedGeomDataExtra>();
 	RegisterFactory<BSInvMarker>();
+	RegisterFactory<BSFurnitureMarker>();
 	RegisterFactory<BSFurnitureMarkerNode>();
 	RegisterFactory<BSDecalPlacementVectorExtraData>();
 	RegisterFactory<BSBehaviorGraphExtraData>();
@@ -263,7 +273,9 @@ NiFactoryRegister::NiFactoryRegister() {
 	RegisterFactory<BSBoneLODExtraData>();
 	RegisterFactory<NiTextKeyExtraData>();
 	RegisterFactory<BSDistantObjectLargeRefExtraData>();
+	RegisterFactory<BSDistantObjectExtraData>();
 	RegisterFactory<BSClothExtraData>();
+	RegisterFactory<BSCollisionQueryProxyExtraData>();
 	RegisterFactory<BSConnectPointParents>();
 	RegisterFactory<BSConnectPointChildren>();
 	RegisterFactory<BSMultiBound>();
@@ -286,6 +298,7 @@ NiFactoryRegister::NiFactoryRegister() {
 	RegisterFactory<bhkConvexVerticesShape>();
 	RegisterFactory<bhkBoxShape>();
 	RegisterFactory<bhkSphereShape>();
+	RegisterFactory<bhkCylinderShape>();
 	RegisterFactory<bhkTransformShape>();
 	RegisterFactory<bhkConvexTransformShape>();
 	RegisterFactory<bhkCapsuleShape>();

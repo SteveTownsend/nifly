@@ -126,10 +126,67 @@ void BSMultiBoundNode::GetChildIndices(std::vector<uint32_t>& indices) {
 }
 
 
+void BSDistantObjectInstancedNode::Sync(NiStreamReversible& stream) {
+	instances.Sync(stream);
+
+	for (int i = 0; i < 3; i++)
+		textureArrays[i].Sync(stream);
+}
+
+
 void BSRangeNode::Sync(NiStreamReversible& stream) {
 	stream.Sync(min);
 	stream.Sync(max);
 	stream.Sync(current);
+}
+
+
+void UnkMaterialStruct::Sync(NiStreamReversible& stream) {
+	stream.Sync(biomeFormID);
+	stream.Sync(dirHash);
+	stream.Sync(fileHash);
+	stream.SyncString(mat);
+}
+
+void BSWaterReferenceStruct::Sync(NiStreamReversible& stream) {
+	stream.Sync(transform);
+	stream.Sync(resourceID);
+	stream.Sync(unkInt1);
+	material.Sync(stream, 4);
+}
+
+void BSWeakReference::Sync(NiStreamReversible& stream) {
+	if (stream.GetVersion().Stream() >= 173)
+		stream.Sync(formID);
+
+	stream.Sync(resourceID);
+	stream.Sync(numTransforms);
+	transforms.resize(numTransforms);
+	for (uint32_t i = 0; i < numTransforms; i++)
+		stream.Sync(transforms[i]);
+
+	stream.Sync(numMaterials);
+	unkMaterials.resize(numMaterials);
+	for (uint32_t i = 0; i < numMaterials; i++)
+		unkMaterials[i].Sync(stream);
+}
+
+void BSWeakReferenceNode::Sync(NiStreamReversible& stream) {
+	stream.Sync(numWeakRefs);
+	weakRefs.resize(numWeakRefs);
+	for (uint32_t i = 0; i < numWeakRefs; i++)
+		weakRefs[i].Sync(stream);
+
+	stream.Sync(unkInt1);
+	stream.Sync(numWaterRefs);
+	waterRefs.resize(numWaterRefs);
+	for (uint32_t i = 0; i < numWaterRefs; i++)
+		waterRefs[i].Sync(stream);
+}
+
+
+void BSFaceGenNiNode::Sync(NiStreamReversible& stream) {
+	stream.Sync(unkShort);
 }
 
 

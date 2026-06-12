@@ -204,7 +204,9 @@ public:
 						const std::vector<Triangle>* tris,
 						const std::vector<Vector2>* uvs,
 						const std::vector<Vector3>* norms);
-	virtual void RecalcNormals(const bool smooth = true, const float smoothThres = 60.0f);
+	virtual void RecalcNormals(const bool smooth = true,
+							   const float smoothThres = 60.0f,
+							   std::unordered_set<uint32_t>* lockedIndices = nullptr);
 	virtual void CalcTangentSpace();
 };
 
@@ -216,22 +218,22 @@ public:
 	virtual bool HasData() const { return false; }
 	virtual NiBlockRef<NiGeometryData>* DataRef() { return nullptr; }
 	virtual const NiBlockRef<NiGeometryData>* DataRef() const { return nullptr; }
-	virtual void SetDataRef(const uint32_t dataId) { }
+	virtual void SetDataRef(const uint32_t) { }
 
 	virtual bool HasSkinInstance() const { return false; }
 	virtual NiBlockRef<NiBoneContainer>* SkinInstanceRef() { return nullptr; }
 	virtual const NiBlockRef<NiBoneContainer>* SkinInstanceRef() const { return nullptr; }
-	virtual void SetSkinInstanceRef(const uint32_t shaderId) { }
+	virtual void SetSkinInstanceRef(const uint32_t) { }
 
 	virtual bool HasShaderProperty() const { return false; }
 	virtual NiBlockRef<NiShader>* ShaderPropertyRef() { return nullptr; }
 	virtual const NiBlockRef<NiShader>* ShaderPropertyRef() const { return nullptr; }
-	virtual void SetShaderPropertyRef(const uint32_t shaderId) { }
+	virtual void SetShaderPropertyRef(const uint32_t) { }
 
 	virtual bool HasAlphaProperty() const { return false; }
 	virtual NiBlockRef<NiAlphaProperty>* AlphaPropertyRef() { return nullptr; }
 	virtual const NiBlockRef<NiAlphaProperty>* AlphaPropertyRef() const { return nullptr; }
-	virtual void SetAlphaPropertyRef(const uint32_t alphaId) { }
+	virtual void SetAlphaPropertyRef(const uint32_t) { }
 
 	virtual uint16_t GetNumVertices() const;
 	virtual void SetVertices(const bool enable);
@@ -342,7 +344,7 @@ public:
 	bool HasUVs() const override { return vertexDesc.HasFlag(VF_UV); }
 
 	void SetSecondUVs(const bool enable);
-	bool HasSecondUVs() { return vertexDesc.HasFlag(VF_UV_2); }
+	bool HasSecondUVs() const { return vertexDesc.HasFlag(VF_UV_2); }
 
 	void SetNormals(const bool enable) override;
 	bool HasNormals() const override { return vertexDesc.HasFlag(VF_NORMAL); }
@@ -541,6 +543,169 @@ public:
 				const std::vector<Vector3>* normals = nullptr) override;
 };
 
+// BSGeometryMeshData is not a nif block object.  In order to be able to use the data as if it were a block
+// data object for reading and modifying geometry data, we inherit the NiGeometryData interface, and override
+// the Sync function.  The stream provided to sync for this object is not the same stream that is working with
+// a nif file.  
+class BSGeometryMeshData : public NiCloneableStreamable<BSGeometryMeshData, NiGeometryData> {
+private:
+	// Traditional scale based on havok to unit transform used in skyrim, fallout, etc. In Starfield mesh files are normalized to metric units,
+	// this scale makes default vertex positions closely match the older games
+	const float havokScale = 69.969f;
+	// experimentally, the below scale produced very accurate values to SSE mesh sizes (comparing markerxheading.nif)
+	// const float havokScale = 69.9866f;
+
+public:
+	struct BoneWeight {
+		uint16_t boneIndex = 0;
+		uint16_t weight = 0;
+	};
+
+	struct Meshlet {
+		uint32_t vertCount = 0;
+		uint32_t vertOffset = 0;
+		uint32_t primCount = 0;
+		uint32_t primOffset = 0;
+	};
+
+	struct CullData {
+		Vector3 center;
+		Vector3 expand;
+	};
+
+	uint32_t version = 0;
+
+	uint32_t nTriIndices = 0;
+	std::vector<Triangle> tris;
+
+	float scale = 0.0f;
+	uint32_t nWeightsPerVert = 0;
+
+	// Vert count is a full 32 bits, versus the 16 bit count in NiGeometryData
+	uint32_t nVertices = 0;
+	// vertices from NIGeometryData
+
+	uint32_t nUV1 = 0;
+	uint32_t nUV2 = 0;
+	// uvSets from NiGeometryData  -- read/write interspersed with nUV1, nUV2
+
+	uint32_t nColors = 0;
+	std::vector<ByteColor4> vColors;
+	// vertexColors from NiGeometryData
+
+	uint32_t nNormals = 0;
+	// normals from NiGeometryData  (UDEC3 packed in file)
+
+	uint32_t nTangents = 0;
+	// tangents from NiGeometryData  (UDEC3 packed in file)
+	std::vector<uint8_t> tangentWs; // 2-bit W component of each tangent (bitangent sign)
+
+	uint32_t nTotalWeights = 0;
+	std::vector<std::vector<BoneWeight>> skinWeights;
+
+	uint32_t nLODS = 0;
+	std::vector<std::vector<Triangle>> lods;
+
+	uint32_t nMeshlets = 0;
+	std::vector<Meshlet> meshletList;
+
+	uint32_t nCullData = 0;
+	std::vector<CullData> cullDataList;
+
+	void Sync(NiStreamReversible& stream);
+};
+
+struct BSGeometryMesh {
+	uint32_t triSize = 0;
+	uint32_t numVerts = 0;
+	uint32_t flags = 0;		// Often 64
+
+	// When internalGeom is false (default), meshName holds the external .mesh path
+	// (41 hex chars from sha1, or a human-readable name). When true, mesh data is
+	// serialized inline in the NIF and meshName is unused.
+	bool internalGeom = false;
+
+	NiString meshName;
+
+	BSGeometryMeshData meshData;
+	void Sync(NiStreamReversible& stream);
+};
+
+class BSGeometry : public NiCloneableStreamable<BSGeometry, NiShape> {
+protected:
+	BoundingSphere bounds;
+	float boundMinMax[6]{};
+
+	NiBlockRef<NiBoneContainer> skinInstanceRef;
+	NiBlockRef<NiShader> shaderPropertyRef;
+	NiBlockRef<NiAlphaProperty> alphaPropertyRef;
+
+	std::vector<BSGeometryMesh> meshes;
+
+	// A currently selected BSGeometryMesh in the list of meshes. All get/set data accessors use this to
+	// address a desired mesh
+	uint8_t selectedMesh = 0;
+
+public:
+	static constexpr const char* BlockName = "BSGeometry";
+	const char* GetBlockName() override { return BlockName; }
+
+	void Sync(NiStreamReversible& stream);
+	void GetChildRefs(std::set<NiRef*>& refs) override;
+	void GetChildIndices(std::vector<uint32_t>& indices) override;
+		
+	NiGeometryData* GetGeomData() const override;
+
+	bool GetTriangles(std::vector<Triangle>& tris) const override;
+	void SetTriangles(const std::vector<Triangle>& tris) override;
+
+	bool IsSkinned() const override { return !skinInstanceRef.IsEmpty(); }
+
+	bool HasSkinInstance() const override { return !skinInstanceRef.IsEmpty(); }
+	NiBlockRef<NiBoneContainer>* SkinInstanceRef() override { return &skinInstanceRef; }
+	const NiBlockRef<NiBoneContainer>* SkinInstanceRef() const override { return &skinInstanceRef; }
+
+	bool HasShaderProperty() const override { return !shaderPropertyRef.IsEmpty(); }
+	NiBlockRef<NiShader>* ShaderPropertyRef() override { return &shaderPropertyRef; }
+	const NiBlockRef<NiShader>* ShaderPropertyRef() const override { return &shaderPropertyRef; }
+
+	bool HasAlphaProperty() const override { return !alphaPropertyRef.IsEmpty(); }
+	NiBlockRef<NiAlphaProperty>* AlphaPropertyRef() override { return &alphaPropertyRef; }
+	const NiBlockRef<NiAlphaProperty>* AlphaPropertyRef() const override { return &alphaPropertyRef; }
+
+	uint8_t MeshCount() { return (uint8_t) meshes.size();	}
+
+	// Flag 0x200 (512) on BSGeometry controls whether mesh data is embedded inline
+	// in the NIF (internal) or stored as separate .mesh files (external).
+	bool HasInternalGeomData() const { return (flags & 0x200) != 0; }
+	void SetInternalGeomData(bool internal) {
+		if (internal)
+			flags |= 0x200;
+		else
+			flags &= ~uint32_t(0x200);
+	}
+
+	// SelectMesh provides a way to choose which mesh from the BSGeometryMesh list data accesessors will use.
+	// If this is not called, functions to retrieve vertices, triangles, etc will default to the first mesh.
+	// Returns a pointer to the mesh data selected.
+	// TODO: this is not thread safe.  A mutex should be set in SelectMesh and released in ReleaseMesh to
+	// avoid synchronization issues.  Alternatively, Get/Set data functions could be changed to take a
+	// selector option, but that's a significant API change.
+	BSGeometryMesh* SelectMesh(uint8_t whichMesh) {
+		if (whichMesh < meshes.size()) {
+			selectedMesh = whichMesh;
+			return &meshes[selectedMesh];
+		}
+		return nullptr;
+	}
+	// ReleaseMesh resets the selected mesh data to default.  This is a stand in for a mutex unlock operation
+	// so should always be called as soon after SelectMesh as possble.
+	void ReleaseMesh() {
+		selectedMesh = 0;
+		return;
+	}
+};
+
 class NiSkinInstance;
 
 STREAMABLECLASSDEF(NiGeometry, NiShape) {
@@ -638,7 +803,9 @@ public:
 	bool GetTriangles(std::vector<Triangle>& tris) const override;
 	void SetTriangles(const std::vector<Triangle>& tris) override;
 
-	void RecalcNormals(const bool smooth = true, const float smoothThres = 60.0f) override;
+	void RecalcNormals(const bool smooth = true,
+					   const float smoothThres = 60.0f,
+					   std::unordered_set<uint32_t>* lockedIndices = nullptr) override;
 	void CalcTangentSpace() override;
 };
 
@@ -678,7 +845,9 @@ public:
 	void SetTriangles(const std::vector<Triangle>& tris) override;
 	std::vector<Triangle> StripsToTris() const;
 
-	void RecalcNormals(const bool smooth = true, const float smoothThres = 60.0f) override;
+	void RecalcNormals(const bool smooth = true,
+					   const float smoothThres = 60.0f,
+					   std::unordered_set<uint32_t>* lockedIndices = nullptr) override;
 	void CalcTangentSpace() override;
 };
 

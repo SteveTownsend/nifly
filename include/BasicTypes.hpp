@@ -20,6 +20,7 @@ See the included GPLv3 LICENSE file
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <stdexcept>
 
 #ifdef SWIG
 
@@ -45,6 +46,9 @@ class DERIVED : public NiCloneableStreamable<DERIVED, BASE>
 namespace nifly {
 // auto for these numbers does not work with SWIG
 constexpr uint32_t NIF_NPOS = static_cast<uint32_t>(-1);
+constexpr uint32_t NIF_ARRAY_SIZE_LIMIT = 1024 * 1024 * 8; // arbitrary limit for file IO validation
+constexpr uint32_t NIF_BLOCK_INDEX_LIMIT = 1024 * 1024; // arbitrary limit for file IO validation
+constexpr uint32_t NIF_STRING_INDEX_LIMIT = 1024 * 1024; // arbitrary limit for file IO validation
 
 constexpr char NiCharMin = std::numeric_limits<char>::min();
 constexpr char NiCharMax = std::numeric_limits<char>::max();
@@ -52,10 +56,13 @@ constexpr uint8_t NiByteMin = std::numeric_limits<uint8_t>::min();
 constexpr uint8_t NiByteMax = std::numeric_limits<uint8_t>::max();
 constexpr uint16_t NiUShortMin = std::numeric_limits<uint16_t>::min();
 constexpr uint16_t NiUShortMax = std::numeric_limits<uint16_t>::max();
+constexpr int32_t NiIntMin = std::numeric_limits<int32_t>::min();
+constexpr int32_t NiIntMax = std::numeric_limits<int32_t>::max();
 constexpr uint32_t NiUIntMin = std::numeric_limits<uint32_t>::min();
 constexpr uint32_t NiUIntMax = std::numeric_limits<uint32_t>::max();
 constexpr float NiFloatMin = std::numeric_limits<float>::lowest();
 constexpr float NiFloatMax = std::numeric_limits<float>::max();
+constexpr float NiFloatInf = std::numeric_limits<float>::infinity();
 constexpr Vector3 NiVec3Min = Vector3(NiFloatMin, NiFloatMin, NiFloatMin);
 constexpr Vector4 NiVec4Min = Vector4(NiFloatMin, NiFloatMin, NiFloatMin, NiFloatMin);
 
@@ -80,11 +87,16 @@ enum NiFileVersion : uint32_t {
 	V10_1_0_101 = 0x0A010065,
 	V10_1_0_104 = 0x0A010068,
 	V10_1_0_106 = 0x0A01006A,
+	V10_1_0_108 = 0x0A01006C,
+	V10_1_0_110 = 0x0A01006E,
+	V10_1_0_112 = 0x0A010070,
+	V10_1_0_113 = 0x0A010071,
 	V10_1_0_114 = 0x0A010072,
 	V10_2_0_0 = 0x0A020000,
 	V10_2_0_1 = 0x0A020001,
 	V10_3_0_1 = 0x0A030001,
 	V10_4_0_1 = 0x0A040001,
+	V20_0_0_2 = 0x14000002,
 	V20_0_0_4 = 0x14000004,
 	V20_0_0_5 = 0x14000005,
 	V20_1_0_1 = 0x14010001,
@@ -92,6 +104,7 @@ enum NiFileVersion : uint32_t {
 	V20_2_0_5 = 0x14020005,
 	V20_2_0_7 = 0x14020007,
 	V20_2_0_8 = 0x14020008,
+	V20_2_4_7 = 0x14020407,
 	V20_3_0_1 = 0x14030001,
 	V20_3_0_2 = 0x14030002,
 	V20_3_0_3 = 0x14030003,
@@ -165,9 +178,11 @@ public:
 	// Check if file has a Skyrim (SE) version range
 	bool IsSSE() const { return file == V20_2_0_7 && stream == 100; }
 	// Check if file has a Fallout 4 version range
-	bool IsFO4() const { return file == V20_2_0_7 && stream == 130; }
+	bool IsFO4() const { return file == V20_2_0_7 && stream >= 130 && stream <= 139; }
 	// Check if file has a Fallout 76 version range
 	bool IsFO76() const { return file == V20_2_0_7 && stream == 155; }
+	// Check if file has a Starfield version range
+	bool IsSF() const { return file == V20_2_0_7 && stream >= 172 && stream <= 175; }
 
 	// Return an Oblivion file version
 	static NiVersion getOB() { return NiVersion(NiFileVersion::V20_0_0_5, 11, 11); }
@@ -181,21 +196,50 @@ public:
 	static NiVersion getFO4() { return NiVersion(NiFileVersion::V20_2_0_7, 12, 130); }
 	// Return a Fallout 76 file version
 	static NiVersion getFO76() { return NiVersion(NiFileVersion::V20_2_0_7, 12, 155); }
+	// Return a Starfield file version
+	static NiVersion getSF() { return NiVersion(NiFileVersion::V20_2_0_7, 12, 172); }
 };
 
 enum NiEndian : uint8_t { ENDIAN_BIG, ENDIAN_LITTLE };
 
-class NiStreamBase {
-private:
+class NiHeaderBase {
+protected:
+	bool valid = false;
+	std::streampos blockSizePos;
+
 	NiVersion version;
+	NiEndian endian = ENDIAN_LITTLE;
 
 public:
-	explicit NiStreamBase() {}
-	explicit NiStreamBase(NiVersion v)
-		: version(std::move(v)) {}
+	virtual ~NiHeaderBase() {}
+
+	bool IsValid() const { return valid; }
 
 	NiVersion& GetVersion() { return version; }
 	const NiVersion& GetVersion() const { return version; }
+
+	void SetVersion(const NiVersion& ver) { version = ver; }
+
+	virtual uint32_t GetStringCount() const = 0;
+	virtual uint32_t FindStringId(const std::string& str) const = 0;
+	virtual uint32_t AddOrFindStringId(const std::string& str, const bool addEmpty = false) = 0;
+	virtual std::string GetStringById(const uint32_t id) const = 0;
+	virtual void SetStringById(const uint32_t id, const std::string& str) = 0;
+};
+
+class NiStreamBase {
+private:
+	NiHeaderBase* header = nullptr;
+
+public:
+	explicit NiStreamBase(NiHeaderBase* hdr)
+		: header(hdr) {}
+
+	NiVersion& GetVersion() { return header->GetVersion(); }
+	const NiVersion& GetVersion() const { return header->GetVersion(); }
+
+	NiHeaderBase& GetHeader() { return *header; }
+	const NiHeaderBase& GetHeader() const { return *header; }
 };
 
 class NiIStream : public NiStreamBase {
@@ -203,15 +247,13 @@ private:
 	std::istream* stream = nullptr;
 
 public:
-	NiIStream(std::istream* s)
-		: stream(s) {}
-
-	NiIStream(std::istream* s, NiVersion v)
-		: NiStreamBase(std::move(v))
+	NiIStream(std::istream* s, NiHeaderBase* hdr)
+		: NiStreamBase(hdr)
 		, stream(s) {}
 
 	void read(char* ptr, std::streamsize count) { stream->read(ptr, count); }
 	void getline(char* ptr, std::streamsize maxCount) { stream->getline(ptr, maxCount); }
+	void getstring(std::string& str) { std::getline(*stream, str, '\0'); }
 
 	// Be careful with sizes of structs and classes
 	template<typename T>
@@ -227,8 +269,8 @@ private:
 	std::streamsize blockSize = 0;
 
 public:
-	NiOStream(std::ostream* s, NiVersion v)
-		: NiStreamBase(std::move(v))
+	NiOStream(std::ostream* s, NiHeaderBase* hdr)
+		: NiStreamBase(hdr)
 		, stream(s) {}
 
 	void write(const char* ptr, std::streamsize count) {
@@ -241,6 +283,14 @@ public:
 		stream->write("\n", 1);
 		blockSize += count + 1;
 	}
+
+	void writestring(const std::string& str) {
+		auto count = static_cast<std::streamsize>(str.size());
+		stream->write(str.data(), count);
+		stream->write("\0", 1);
+		blockSize += count + 1;
+	}
+
 	std::streampos tellp() { return stream->tellp(); }
 
 	// Be careful with sizes of structs and classes
@@ -285,6 +335,20 @@ public:
 			return ostream->GetVersion();
 	}
 
+	NiHeaderBase& GetHeader() {
+		if (mode == Mode::Reading)
+			return istream->GetHeader();
+		else
+			return ostream->GetHeader();
+	}
+
+	const NiHeaderBase& GetHeader() const {
+		if (mode == Mode::Reading)
+			return istream->GetHeader();
+		else
+			return ostream->GetHeader();
+	}
+
 	void Sync(char* ptr, std::streamsize count) {
 		if (mode == Mode::Reading)
 			istream->read(ptr, count);
@@ -299,6 +363,13 @@ public:
 			ostream->writeline(ptr, count);
 	}
 
+	void SyncString(std::string& str) {
+		if (mode == Mode::Reading)
+			istream->getstring(str);
+		else
+			ostream->writestring(str);
+	}
+
 	void SyncHalf(float& fl) {
 		half_float::half halfData;
 
@@ -310,6 +381,47 @@ public:
 		if (mode == Mode::Reading)
 			fl = halfData;
 	}
+	
+	void SyncUDEC3(Vector3& vec) {
+		uint32_t data = 0;
+
+		if (mode == Mode::Writing) {
+			data  = (static_cast<uint32_t>(std::round((vec.x + 1.0) * 511.5)) & 1023);
+			data |= (static_cast<uint32_t>(std::round((vec.y + 1.0) * 511.5)) & 1023) << 10;
+			data |= (static_cast<uint32_t>(std::round((vec.z + 1.0) * 511.5)) & 1023) << 20;
+			data |= static_cast<uint32_t>(1) << 30;
+		}
+
+		Sync(data);
+
+		if (mode == Mode::Reading) {
+			vec.x = (float)(((data & 1023) / 511.5) - 1.0);
+			vec.y = (float)((((data >> 10) & 1023) / 511.5) - 1.0);
+			vec.z = (float)((((data >> 20) & 1023) / 511.5) - 1.0);
+		}
+	}
+
+	void SyncUDEC3(Vector3& vec, uint8_t& w) {
+		uint32_t data = 0;
+
+		if (mode == Mode::Writing) {
+			data  = (static_cast<uint32_t>(std::round((vec.x + 1.0) * 511.5)) & 1023);
+			data |= (static_cast<uint32_t>(std::round((vec.y + 1.0) * 511.5)) & 1023) << 10;
+			data |= (static_cast<uint32_t>(std::round((vec.z + 1.0) * 511.5)) & 1023) << 20;
+			data |= static_cast<uint32_t>(w & 3) << 30;
+		}
+
+		Sync(data);
+
+		if (mode == Mode::Reading) {
+			vec.x = (float)(((data & 1023) / 511.5) - 1.0);
+			vec.y = (float)((((data >> 10) & 1023) / 511.5) - 1.0);
+			vec.z = (float)((((data >> 20) & 1023) / 511.5) - 1.0);
+			w = static_cast<uint8_t>((data >> 30) & 3);
+		}
+	}
+
+	
 
 	NiOStream* asWrite() { return ostream; }
 	NiIStream* asRead() { return istream; }
@@ -326,8 +438,8 @@ class NiCloneable : public Base {
 public:
 	virtual ~NiCloneable() override = default;
 
-	Derived* Clone() const {
-		return static_cast<Derived*>(this->Clone_impl());
+	std::unique_ptr<Derived> Clone() const {
+		return std::unique_ptr<Derived>(static_cast<Derived*>(this->Clone_impl()));
 	}
 
 private:
@@ -337,14 +449,33 @@ private:
 	const Derived& asDer() const { return static_cast<const Derived&>(*this); }
 };
 
-// this is a superset of Clonable that also supports streaming I/O
+template<typename Derived, typename Base>
+class NiStreamable : public Base {
+public:
+	void Get(NiIStream& stream) override {
+		Base::Get(stream);
+		NiStreamReversible s(&stream, nullptr, NiStreamReversible::Mode::Reading);
+		asDer().Sync(s);
+	}
+
+	void Put(NiOStream& stream) override {
+		Base::Put(stream);
+		NiStreamReversible s(nullptr, &stream, NiStreamReversible::Mode::Writing);
+		asDer().Sync(s);
+	}
+
+private:
+	Derived& asDer() { return static_cast<Derived&>(*this); }
+	const Derived& asDer() const { return static_cast<const Derived&>(*this); }
+};
+
 template<typename Derived, typename Base>
 class NiCloneableStreamable : public Base {
 public:
 	virtual ~NiCloneableStreamable() override = default;
 
-	Derived* Clone() const {
-		return static_cast<Derived*>(this->Clone_impl());
+	std::unique_ptr<Derived> Clone() const {
+		return std::unique_ptr<Derived>(static_cast<Derived*>(this->Clone_impl()));
 	}
 
 	void Get(NiIStream& stream) override {
@@ -442,11 +573,6 @@ public:
 	bool operator!=(const std::string& rhs) const { return !operator==(rhs); }
 };
 
-struct NiPlane {
-	Vector3 normal;
-	float constant = 0.0f;
-};
-
 class NiRef {
 public:
 	uint32_t index = NIF_NPOS;
@@ -466,20 +592,14 @@ using NiPtr = NiRef;
 // Helper to reduce duplication
 template<typename ValueType, typename SizeType>
 class NiVectorBase {
-public:
-	typedef std::vector<ValueType> Container;
-
 private:
-	Container vec;
+	std::vector<ValueType> vec;
 
 protected:
 	static constexpr size_t NumSize = sizeof(SizeType);
 	static constexpr SizeType MaxIndex = std::numeric_limits<SizeType>::max() - 1;
 
 public:
-	typedef typename Container::iterator iterator;
-	typedef typename Container::const_iterator const_iterator;
-
 	NiVectorBase() = default;
 	NiVectorBase(const SizeType size) { resize(size); }
 
@@ -488,27 +608,27 @@ public:
 
 	void clear() { vec.clear(); }
 
-	iterator begin() { return vec.begin(); }
-	const_iterator cbegin() const { return vec.begin(); }
+	auto begin() { return vec.begin(); }
+	auto cbegin() const { return vec.begin(); }
 
-	iterator end() { return vec.end(); }
-	const_iterator cend() const { return vec.end(); }
+	auto end() { return vec.end(); }
+	auto cend() const { return vec.end(); }
 
 	void resize(SizeType size) { vec.resize(size); }
 
 	void push_back(ValueType& val) { vec.push_back(val); }
-	void insert(SizeType index, ValueType& val) { vec.insert(vec.begin() + index, val); }
+	auto insert(SizeType index, ValueType& val) { vec.insert(vec.begin() + index, val); }
 
-	ValueType& operator[](SizeType i) { return vec[i]; }
+	auto& operator[](SizeType i) { return vec[i]; }
 
 	ValueType* data() { return vec.data(); }
 	const ValueType* data() const { return vec.data(); }
 
-	iterator erase(SizeType i) { return vec.erase(vec.begin() + i); }
+	auto erase(SizeType i) { return vec.erase(vec.begin() + i); }
 
 	// for SWIG, to avoid duplicating std_vector.i to handle iteration
-	Container items() const { return vec; }
-	void SetItems(const Container& newItems) { vec = newItems; }
+	std::vector<ValueType> items() const { return vec; }
+	void SetItems(const std::vector<ValueType>& newItems) { vec = newItems; }
 };
 
 template<typename ValueType, typename SizeType = uint32_t>
@@ -689,9 +809,8 @@ public:
 	}
 };
 
-class NiStringRefVector : public NiVectorBase<NiStringRef, uint32_t> {
-public:
-	using SizeType = uint32_t;
+template<typename SizeType = uint32_t>
+class NiStringRefVector : public NiVectorBase<NiStringRef, SizeType> {
 private:
 	using Base = NiVectorBase<NiStringRef, SizeType>;
 	using Base::MaxIndex;
@@ -738,7 +857,12 @@ public:
 	NiBlockRef() {}
 	NiBlockRef(const uint32_t id) { NiRef::index = id; }
 
-	void Sync(NiStreamReversible& stream) { stream.Sync(base::index); }
+	void Sync(NiStreamReversible& stream) {
+		stream.Sync(base::index);
+
+		if (base::index != NIF_NPOS && base::index > NIF_BLOCK_INDEX_LIMIT)
+			throw std::length_error("IO: Block index is too high.");
+	}
 };
 
 template<typename T>
@@ -817,6 +941,10 @@ public:
 			CleanInvalidRefs();
 
 		stream.Sync(arraySize);
+
+		if (arraySize > NIF_ARRAY_SIZE_LIMIT)
+			throw std::length_error("IO: Array size is too large.");
+
 		refs.resize(arraySize);
 
 		for (auto& r : refs)
@@ -873,10 +1001,9 @@ template<typename T>
 class NiBlockRefShortArray : public NiBlockRefArray<T> {
 public:
 	using base = NiBlockRefArray<T>;
-protected:
-	using base::refs;
-public:
 	using base::arraySize;
+	using base::refs;
+
 	void Sync(NiStreamReversible& stream) override {
 		if (stream.GetMode() == NiStreamReversible::Mode::Writing)
 			base::CleanInvalidRefs();
@@ -925,8 +1052,8 @@ public:
 	virtual void GetChildIndices(std::vector<uint32_t>&) {}
 	virtual void GetPtrs(std::set<NiPtr*>&) {}
 
-	NiObject* Clone() const {
-		return static_cast<NiObject*>(this->Clone_impl());
+	std::unique_ptr<NiObject> Clone() const {
+		return std::unique_ptr<NiObject>(static_cast<NiObject*>(this->Clone_impl()));
 	}
 
 	template<typename T>
@@ -938,7 +1065,7 @@ private:
 	virtual NiObject* Clone_impl() const = 0;
 };
 
-CLONEABLECLASSDEF(NiHeader, NiObject) {
+class NiHeader : public NiHeaderBase, public NiCloneable<NiHeader, NiObject> {
 	/*
 	Minimum supported
 	Version:			20.2.0.7
@@ -952,11 +1079,6 @@ CLONEABLECLASSDEF(NiHeader, NiObject) {
 	*/
 
 private:
-	bool valid = false;
-	std::streampos blockSizePos;
-
-	NiVersion version;
-	NiEndian endian = ENDIAN_LITTLE;
 	NiString creator;
 	uint32_t unkInt1 = 0;
 	NiString exportInfo1;
@@ -986,25 +1108,46 @@ private:
 	uint32_t numGroups = 0;
 	std::vector<uint32_t> groupSizes;
 
+	template<class T>
+	bool DeleteUnreferencedBlocksInternal(uint32_t& rootId, uint32_t* deletionCount) {
+		if (rootId == NIF_NPOS)
+			return false;
+	
+		bool anyBlockDeleted = false;
+	
+		for (uint32_t i = 0; i < numBlocks; i++) {
+			if (i != rootId) {
+				// Only check blocks of provided template type
+				auto block = GetBlock<T>(i);
+				if (block && !IsBlockReferenced(i, false)) {
+					DeleteBlock(i);
+
+					anyBlockDeleted = true;
+	
+					if (deletionCount)
+						(*deletionCount)++;
+	
+					if (rootId > i)
+						rootId--;
+				}
+			}
+		}
+	
+		return anyBlockDeleted;
+	}
+
 public:
 	static constexpr const char* BlockName = "NiHeader";
 	const char* GetBlockName() override { return BlockName; }
 
 	void Clear();
 
-	bool IsValid() const { return valid; }
-
-	NiVersion& GetVersion() { return version; }
-	const NiVersion& GetVersion() const { return version; }
-
-	void SetVersion(const NiVersion& ver) { version = ver; }
-
 	std::string GetCreatorInfo() const;
 	void SetCreatorInfo(const std::string& creatorInfo);
 
 	std::string GetExportInfo() const;
 
-	// Sets export info string (automatically split into three members after 256 characters each)
+	// Sets export info string (automatically split into three members after 254 characters each)
 	void SetExportInfo(const std::string& exportInfo);
 
 	// Sets pointer to all blocks in the file
@@ -1095,11 +1238,11 @@ public:
 	void DeleteBlockByType(const std::string& blockTypeStr, const bool orphanedOnly = false);
 
 	// Adds a new block to the file. Pointer is moved to the file.
-	uint32_t AddBlock(NiObject* newBlock);
+	uint32_t AddBlock(std::unique_ptr<NiObject> newBlock);
 
 	// Replaces an existing block in the file. Pointer is moved to the file.
 	// This is not the same as deleting and adding a new block.
-	uint32_t ReplaceBlock(const uint32_t oldBlockId, NiObject* newBlock);
+	uint32_t ReplaceBlock(const uint32_t oldBlockId, std::unique_ptr<NiObject> newBlock);
 
 	void SetBlockOrder(std::vector<uint32_t>& newOrder);
 
@@ -1110,27 +1253,16 @@ public:
 	// Use template type "NiObject" for all block types.
 	// Sets the amount of deleted blocks (or 0) in "deletionCount".
 	template<class T>
-	bool DeleteUnreferencedBlocks(const uint32_t rootId, uint32_t* deletionCount = nullptr) {
-		if (rootId == NIF_NPOS)
-			return false;
-
-		for (uint32_t i = 0; i < numBlocks; i++) {
-			if (i != rootId) {
-				// Only check blocks of provided template type
-				auto block = GetBlock<T>(i);
-				if (block && !IsBlockReferenced(i)) {
-					DeleteBlock(i);
-
-					if (deletionCount)
-						(*deletionCount)++;
-
-					// Deleting a block can cause others to become unreferenced
-					return DeleteUnreferencedBlocks<T>(rootId > i ? rootId - 1 : rootId, deletionCount);
-				}
-			}
-		}
-
-		return true;
+	bool DeleteUnreferencedBlocks(const uint32_t rootId, uint32_t* deletionCount) {
+		bool anyBlockDeleted = false;
+		uint32_t newRootId = rootId;
+	
+		do {
+			// Deleting a block can cause others to become unreferenced
+			anyBlockDeleted = DeleteUnreferencedBlocksInternal<T>(newRootId, deletionCount);
+		} while (anyBlockDeleted);
+	
+		return anyBlockDeleted;
 	}
 
 	uint16_t AddOrFindBlockTypeId(const std::string& blockTypeName);
@@ -1141,19 +1273,19 @@ public:
 	std::streampos GetBlockSizeStreamPos() const;
 	void ResetBlockSizeStreamPos();
 
-	uint32_t GetStringCount() const;
-	uint32_t FindStringId(const std::string& str) const;
+	uint32_t GetStringCount() const override;
+	uint32_t FindStringId(const std::string& str) const override;
 
 	// Adds a new string to the header (or finds a matching one).
 	// "addEmpty" allows for adding an empty string, which is usually not required.
 	// Returns the string index that can then be assigned to a block's member.
-	uint32_t AddOrFindStringId(const std::string& str, const bool addEmpty = false);
+	uint32_t AddOrFindStringId(const std::string& str, const bool addEmpty = false) override;
 
 	// Returns string at the specified string index (or empty string)
-	std::string GetStringById(const uint32_t id) const;
+	std::string GetStringById(const uint32_t id) const override;
 
 	// Sets string at the specified string index (or does nothing)
-	void SetStringById(const uint32_t id, const std::string& str);
+	void SetStringById(const uint32_t id, const std::string& str) override;
 
 	void ClearStrings();
 	void UpdateMaxStringLength();
@@ -1170,6 +1302,19 @@ public:
 	void Put(NiOStream& stream) override;
 };
 
+struct NiPlane {
+	Vector3 normal;
+	float constant = 0.0f;
+};
+
+class BSTextureArray {
+public:
+	NiStringVector<> textureArray;
+
+	void Sync(NiStreamReversible& stream) { textureArray.Sync(stream); }
+};
+
+// Used for all unknown block types
 STREAMABLECLASSDEF(NiUnknown, NiObject) {
 public:
 	std::vector<char> data;
