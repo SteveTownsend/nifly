@@ -23,7 +23,7 @@ See the included GPLv3 LICENSE file
 
 namespace nifly {
 constexpr auto NIF_NPOS = static_cast<uint32_t>(-1);
-constexpr auto NIF_ARRAY_SIZE_LIMIT = 1024 * 1024 * 8; // arbitrary limit for file IO validation
+constexpr auto NIF_ARRAY_SIZE_LIMIT = 1024 * 1024 * 10; // arbitrary limit for file IO validation
 constexpr auto NIF_BLOCK_INDEX_LIMIT = 1024 * 1024; // arbitrary limit for file IO validation
 constexpr auto NIF_STRING_INDEX_LIMIT = 1024 * 1024; // arbitrary limit for file IO validation
 
